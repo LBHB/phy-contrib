@@ -1,23 +1,19 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  3 13:54:59 2016
+"""PlotClusterLocations view plugin.
 
-@author: luke
+This plugin pops up matplotlib figure showing the location of each cluster by 
+a weighted mean of it's mean spike height for each channel.
+Size of circle indicates mean spike height for the biggest channel.
+
+
+To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
+to your `~/.phy/phy_config.py`:
+
+```python
+c.TemplateGUI.plugins = ['PlotClusterLocations']
+```
+
 """
 
-#def decorator(function):
-#    controller.callbacks.append(function)
-#    return function
-#        
-#
-#@decorator
-#def foo(*args, **kwargs):
-#    pass
-#
-## equivalent
-#def foo(*args, **kwargs):
-#    pass
-#foo = decorator(foo)
 from phy.gui import Actions
 import numpy as np
 from phy import IPlugin
@@ -53,7 +49,7 @@ class PlotClusterLocations(IPlugin):
             actions = Actions(gui)
             @actions.add(alias='pcl') #shortcut='ctrl+p',
             def acp(controller=controller):
-                print('All Cluster Plot')
+                print('Plotting Cluster Locations')
                 self.drawn=True
                 self.text_handles=[None] * len(controller.cluster_ids)
                 self.color=[None] * len(controller.cluster_ids)
@@ -61,7 +57,6 @@ class PlotClusterLocations(IPlugin):
                 cluster_ids=controller.cluster_ids
                 height=np.zeros(len(cluster_ids))
                 center_of_mass=np.zeros((len(cluster_ids),2))
-                use=np.zeros(len(cluster_ids), dtype=bool)
                 type=np.zeros(len(cluster_ids), dtype=int)
                 for i in range(len(cluster_ids)):
                     data = controller.get_waveforms(int(cluster_ids[i]))[0]
@@ -75,7 +70,6 @@ class PlotClusterLocations(IPlugin):
                         
                     mv=mv/mv.sum()
                     center_of_mass[i,:]=(mv*controller.channel_positions.T).sum(1)
-                    use[i]=True
 
                     if controller.cluster_groups[cluster_ids[i]] == 'good':
                         type[i]=3
@@ -136,13 +130,6 @@ class PlotClusterLocations(IPlugin):
 #                    view.text(pos=(center_of_mass[inds[i],0],center_of_mass[inds[i],1]), text='hi',anchor=(center_of_mass[inds[i],0],center_of_mass[inds[i],1]),data_bounds=None)
 #                    view.text(pos=(center_of_mass[inds[i],0],center_of_mass[inds[0],1]), text='hi',anchor=(center_of_mass[inds[0],0],center_of_mass[inds[0],1]),data_bounds=None)
 #                view.show()    
-                
-                
-                
-                
-#                from PyQt4.QtCore import pyqtRemoveInputHook
-#                from pdb import set_trace
-#                pyqtRemoveInputHook()
-#                set_trace()  
+
                 
                                 
