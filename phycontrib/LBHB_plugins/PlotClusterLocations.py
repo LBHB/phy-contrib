@@ -1,9 +1,8 @@
 """PlotClusterLocations view plugin.
 
-This plugin pops up matplotlib figure showing the location of each cluster by 
-a weighted mean of it's mean spike height for each channel.
+This plugin pops up a matplotlib figure showing the location of each cluster by 
+a weighted mean of its mean spike height for each channel.
 Size of circle indicates mean spike height for the biggest channel.
-
 
 To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
 to your `~/.phy/phy_config.py`:
@@ -11,7 +10,7 @@ to your `~/.phy/phy_config.py`:
 ```python
 c.TemplateGUI.plugins = ['PlotClusterLocations']
 ```
-
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
 """
 
 from phy.gui import Actions
@@ -48,7 +47,7 @@ class PlotClusterLocations(IPlugin):
             
             actions = Actions(gui)
             @actions.add(alias='pcl') #shortcut='ctrl+p',
-            def acp(controller=controller):
+            def PlotClusterLocations(controller=controller):
                 print('Plotting Cluster Locations')
                 self.drawn=True
                 self.text_handles=[None] * len(controller.cluster_ids)

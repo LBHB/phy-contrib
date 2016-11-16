@@ -1,15 +1,16 @@
-"""Custom view plugin.
+"""Interspike interval view plugin.
 
-This plugin adds an interactive matplotlib figure showing the ISI of the
-first selected cluster.
+This plugin adds an interactive matplotlib figure showing the ISI histograms of
+the selected clusters.
 
 To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
 to your `~/.phy/phy_config.py`:
 
 ```python
-c.KwikGUI.plugins = ['CustomView']
+c.TemplateGUI.plugins = ['ISIView']
 ```
 
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
 """
 
 from phy import IPlugin

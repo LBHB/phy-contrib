@@ -1,23 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Nov  3 13:54:59 2016
+"""ChannelExportUpdate output plugin.
 
-@author: luke
-"""
+This plugin replaces phy's default svae function to additionally create
+a best_channels.npy file containing the phy best channels.
 
-#def decorator(function):
-#    controller.callbacks.append(function)
-#    return function
-#        
-#
-#@decorator
-#def foo(*args, **kwargs):
-#    pass
-#
-## equivalent
-#def foo(*args, **kwargs):
-#    pass
-#foo = decorator(foo)
+To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
+to your `~/.phy/phy_config.py`:
+
+```python
+c.TemplateGUI.plugins = ['ChannelExportUpdate']
+```
+
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+"""
 filenames = {
     'spike_templates': 'spike_templates.npy',
     'spike_clusters': 'spike_clusters.npy',

@@ -1,17 +1,18 @@
-"""Adding a column in the cluster view.
+"""SpikeHeight metric plugin.
 
-This file should be saved in `~/.phy/plugins/custom_stats.py`.
+This plugin adds a column to the metrics showing the spike height.
 
-In addition, you need to edit `~/.phy/phy_config.py` and add the following
-line:
+To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
+to your `~/.phy/phy_config.py`:
 
+```python
+c.TemplateGUI.plugins = ['SpikeHeight']
 ```
-c.KwikController.plugins = ['MyKwikPlugin']
-```
 
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+adapted from custom_stats.py example
 """
 
-import numpy as np
 from phy import IPlugin
 
 
@@ -45,9 +46,7 @@ class SpikeHeight(IPlugin):
         @ctx.memcache
         def height(cluster_id):
             # This function takes a cluster id as input and returns a scalar.
-
-            # We retrieve the spike_ids and waveforms for that cluster.
-            # waveforms is a (n_spikes, n_samples, n_channels) array.
+            # data.data is a (n_spikes, n_samples, n_channels) array.
             data = controller.get_waveforms(cluster_id)[0]
             #(n_spikes, n_samples, n_channels)
             m=data.data.max()

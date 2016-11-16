@@ -8,7 +8,7 @@ to your `~/.phy/phy_config.py`:
 ```python
 c.TemplateGUI.plugins = ['AmplitudeHistogram']
 ```
-
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
 """
 
 from phy import IPlugin
