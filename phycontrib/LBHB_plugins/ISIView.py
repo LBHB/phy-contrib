@@ -15,30 +15,41 @@ Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
 
 from phy import IPlugin
 import numpy as np
+#import matplotlib
+#matplotlib.use("Qt4Agg")
 import matplotlib.pyplot as plt
 from phy.utils._color import _spike_colors
 
 class ISIView(IPlugin):
     def attach_to_controller(self, controller):
 
-        # Create the figure when initializing the GUI.
-        plt.rc('xtick', color='w')        
-        plt.rc('ytick', color='w')
-        plt.rc('axes', edgecolor='w')
-        f, ax = plt.subplots()
-        rect = f.patch
-        rect.set_facecolor('k')
-        ax.set_axis_bgcolor('k')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.yaxis.set_ticks_position('left')
-        ax.xaxis.set_ticks_position('bottom')
-        ax.get_yaxis().set_tick_params(direction='out')
-        ax.get_xaxis().set_tick_params(direction='out')
-        
         @controller.connect
         def on_create_gui(gui):
             # Called when the GUI is created.
+
+            # Create the figure when initializing the GUI.
+            plt.rc('xtick', color='w')        
+            plt.rc('ytick', color='w')
+            plt.rc('axes', edgecolor='w')
+            
+            f = plt.figure()
+            ax = f.add_axes([0.15, 0.1, 0.78, 0.87])
+            rect = f.patch
+            rect.set_facecolor('k')
+            ax.set_axis_bgcolor('k')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.yaxis.set_ticks_position('left')
+            ax.xaxis.set_ticks_position('bottom')
+            ax.get_yaxis().set_tick_params(direction='out')
+            ax.get_xaxis().set_tick_params(direction='out')
+            binsize=.1
+            binmax=10
+            bins=np.arange(0,binmax,binsize)     
+                #        hist,bin_edges=np.histogram(np.zeros(1), bins=bins)
+    #        colors = _spike_colors(np.arange(1))
+    #        h1=ax.bar(bin_edges[:-1], hist, width = 1, edgecolor = 'None', facecolor = colors[0])
+    #        f.canvas.draw()
 
             # We add the matplotlib figure to the GUI.
             gui.add_view(f, name='ISI')
@@ -46,20 +57,23 @@ class ISIView(IPlugin):
             # We connect this function to the "select" event triggered
             # by the GUI at every cluster selection change.
             @gui.connect_
-            def on_select(clusters):
+            def on_select(clusters,tf=f,tax=ax,bins=bins):
                 # We clear the figure.
-
-                ax.clear()
+                tax.clear()
                 colors = _spike_colors(np.arange(len(clusters)))
-                binsize=.1
-                binmax=10
-                bins=np.arange(0,binmax,binsize)
+
                 for i in range(len(clusters)):
                     if len(clusters) == 1 :
                         colors[i][3]=1
                     spikes = 1000*controller.spike_times[controller.spike_clusters == clusters[i]]
-                    ax.hist(np.diff(spikes), bins, edgecolor = 'none', facecolor = colors[i])
-                ymin, ymax = ax.get_ylim()
-                ax.vlines(1,ymin,ymax,colors='w',linestyles='dashed')
+                    #hist,bin_edges=np.histogram(np.diff(spikes), bins=bins)
+                    #ax.bar(bin_edges[:-1], hist, width = 1, edgecolor = 'None', facecolor = colors[i])
+                    #ax.plot(bin_edges[:-1], hist, color = colors[i])
+                    #ax.plot([0, 1], [0, 1], color='r')
+                    
+                    tax.hist(np.diff(spikes), bins, edgecolor = 'None', facecolor = colors[i])
+                ymin, ymax = tax.get_ylim()
+                tax.vlines(1,ymin,ymax,colors='w',linestyles='dashed')
                 # We update the figure.
-                f.canvas.draw()
+                
+                tf.canvas.draw()
