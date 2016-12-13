@@ -35,7 +35,7 @@ from phy.traces import WaveformLoader
 from phy.utils import Bunch, IPlugin
 from phy.utils.cli import _add_log_file
 from phy.utils._misc import _read_python
-
+from phy.utils._color import _colormap
 logger = logging.getLogger(__name__)
 
 
@@ -98,7 +98,87 @@ def subtract_templates(traces,
 
 
 class AmplitudeView(ScatterView):
-    pass
+    def __init__(self,
+                 coords=None,  # function clusters: Bunch(x, y)
+                 sample_rate=None,
+                 path=None,
+                 mc=None,
+                 **kwargs):
+
+        assert coords
+        self.coords = coords
+        blocksizes_path=op.join(path,'blocksizes.npy')
+        if op.exists(blocksizes_path):
+            self.blocksizes=np.load(blocksizes_path)[0]
+            self.blockstarts=np.load(op.join(path,'blockstarts.npy'))[0]
+            self.blocksizes_time=self.blocksizes/sample_rate
+            self.blockstarts_time=self.blockstarts/sample_rate
+            self.show_block_gap=False
+            self.show_block_lines=True
+        else:
+            self.show_block_gap=False
+            self.show_block_lines=False
+        # Initialize the view.
+        super(ScatterView, self).__init__(**kwargs)
+        
+        if self.show_block_lines:
+            @mc.actions.add(menu='AmplitudeView',name='Toggle show block gaps')   
+            def toggle_show_block_gap(self=self,mc=mc):
+                """Toggle the overlap of the waveforms."""
+                self.show_block_gap = not self.show_block_gap             
+                self.on_select()
+        
+    def on_select(self, cluster_ids=None):
+        super(ScatterView, self).on_select(cluster_ids)
+        cluster_ids = self.cluster_ids
+        n_clusters = len(cluster_ids)
+        if n_clusters == 0:
+            return
+
+        # Get the x and y coordinates.
+        data = self.coords(cluster_ids)
+        if data is None:
+            self.clear()
+            return
+        assert isinstance(data, list)
+
+        # Plot the points.
+        with self.building():
+            for i, cl in enumerate(cluster_ids):
+                # Skip non-existing clusters.
+                if i >= len(data):  # pragma: no cover
+                    continue
+                d = data[i]
+                spike_ids = d.spike_ids
+                x = np.copy(d.x)
+                y = d.y
+                data_bounds = list(d.get('data_bounds', 'auto'))
+                n_spikes = len(spike_ids)
+                assert n_spikes > 0
+                assert x.shape == (n_spikes,)
+                assert y.shape == (n_spikes,)
+                if self.show_block_gap:
+                    line_times=self.blockstarts_time
+                    gap_times=self.blockstarts_time[1:]-self.blocksizes_time[:-1].cumsum()
+                    data_bounds[2]=self.blockstarts_time[-1]+self.blocksizes_time[-1]
+                    for j in range(len(gap_times)):
+                        x[np.logical_and(d.x>self.blocksizes_time[:j+1].sum(),d.x<self.blocksizes_time[:j+2].sum())]+=gap_times[j]
+                else:
+                    if self.show_block_lines:
+                        data_bounds[2]=self.blocksizes_time.sum()
+                        line_times=self.blocksizes_time[:-1].cumsum()
+                self.scatter(x=x, y=y,
+                             color=tuple(_colormap(i)) + (.5,),
+                             size=self._default_marker_size,
+                             data_bounds=data_bounds,
+                             )
+                
+            if self.show_block_lines:
+                for time in line_times:
+                    self.lines(pos=[time, data_bounds[1], time, data_bounds[3]],color=(1, 1, 1, 1),data_bounds=data_bounds)
+     
+           
+        
 
 
 class FeatureTemplateView(ScatterView):
@@ -134,17 +214,17 @@ filenames = {
 }
 
 
-def read_array(name):
+
+def read_array(name,path=''): 
     fn = filenames[name]
     arr_name, ext = op.splitext(fn)
     if ext == '.mat':
-        return sio.loadmat(fn)[arr_name]
+        return sio.loadmat(op.join(path,fn))[arr_name]
     elif ext == '.npy':
-        return np.load(fn)
-
-
-def write_array(name, arr):
-    np.save(name, arr)
+        return np.load(op.join(path,fn))
+        
+def write_array(name, arr,path=''):
+    np.save(op.join(path,name), arr)
 
 
 def get_closest_channels(channel_positions, n=None):
@@ -238,9 +318,11 @@ def save_metadata(filename, field_name, metadata):
 
 class TemplateController(Controller):
     gui_name = 'TemplateGUI'
-
+        
     def __init__(self, dat_path=None, **kwargs):
         dat_path = dat_path or ''
+        if 'path' not in kwargs.keys():
+            kwargs['path']=os.getcwd()
         dir_path = (op.dirname(op.realpath(op.expanduser(dat_path)))
                     if dat_path else os.getcwd())
         self.cache_dir = op.join(dir_path, '.phy')
@@ -266,42 +348,42 @@ class TemplateController(Controller):
             n_samples_t = 0
 
         logger.debug("Loading amplitudes.")
-        amplitudes = read_array('amplitudes').squeeze()
+        amplitudes = read_array('amplitudes',path=self.path).squeeze()
         n_spikes, = amplitudes.shape
         self.n_spikes = n_spikes
 
         # Create spike_clusters if the file doesn't exist.
-        if not op.exists(filenames['spike_clusters']):
-            shutil.copy(filenames['spike_templates'],
-                        filenames['spike_clusters'])
+        if not op.exists(op.join(self.path,filenames['spike_clusters'])):
+            shutil.copy(op.join(self.path,filenames['spike_templates']),
+                        op.join(self.path,filenames['spike_clusters']))
         logger.debug("Loading %d spike clusters.", self.n_spikes)
-        spike_clusters = read_array('spike_clusters').squeeze()
+        spike_clusters = read_array('spike_clusters',path=self.path).squeeze()
         spike_clusters = spike_clusters.astype(np.int32)
         assert spike_clusters.shape == (n_spikes,)
         self.spike_clusters = spike_clusters
 
         logger.debug("Loading spike templates.")
-        spike_templates = read_array('spike_templates').squeeze()
+        spike_templates = read_array('spike_templates',path=self.path).squeeze()
         spike_templates = spike_templates.astype(np.int32)
         assert spike_templates.shape == (n_spikes,)
         self.spike_templates = spike_templates
 
         logger.debug("Loading spike samples.")
-        spike_samples = read_array('spike_samples').squeeze()
+        spike_samples = read_array('spike_samples',path=self.path).squeeze()
         assert spike_samples.shape == (n_spikes,)
 
         logger.debug("Loading templates.")
-        templates = read_array('templates')
+        templates = read_array('templates',path=self.path)
         templates[np.isnan(templates)] = 0
         # templates = np.transpose(templates, (2, 1, 0))
 
         # Unwhiten the templates.
         logger.debug("Loading the whitening matrix.")
-        self.whitening_matrix = read_array('whitening_matrix')
+        self.whitening_matrix = read_array('whitening_matrix',path=self.path)
 
-        if op.exists(filenames['templates_unw']):
+        if op.exists(op.join(self.path,filenames['templates_unw'])):
             logger.debug("Loading unwhitened templates.")
-            templates_unw = read_array('templates_unw')
+            templates_unw = read_array('templates_unw',path=self.path)
             templates_unw[np.isnan(templates_unw)] = 0
         else:
             logger.debug("Couldn't find unwhitened templates, computing them.")
@@ -313,35 +395,35 @@ class TemplateController(Controller):
             templates_unw = np.dot(np.ascontiguousarray(templates),
                                    np.ascontiguousarray(wmi))
             # Save the unwhitened templates.
-            write_array('templates_unw.npy', templates_unw)
+            write_array('templates_unw.npy', templates_unw,path=self.path)
 
         n_templates, n_samples_templates, n_channels = templates.shape
         self.n_templates = n_templates
 
         logger.debug("Loading similar templates.")
-        self.similar_templates = read_array('similar_templates')
+        self.similar_templates = read_array('similar_templates',path=self.path)
         assert self.similar_templates.shape == (self.n_templates,
                                                 self.n_templates)
 
         logger.debug("Loading channel mapping.")
-        channel_mapping = read_array('channel_mapping').squeeze()
+        channel_mapping = read_array('channel_mapping',path=self.path).squeeze()
         channel_mapping = channel_mapping.astype(np.int32)
         assert channel_mapping.shape == (n_channels,)
-        # Ensure that the mappings maps to valid columns in the dat file.
+        # Ensure that the mappings maps to valid columns in the dat file.
         assert np.all(channel_mapping <= self.n_channels_dat - 1)
         self.channel_order = channel_mapping
 
         logger.debug("Loading channel positions.")
-        channel_positions = read_array('channel_positions')
+        channel_positions = read_array('channel_positions',path=self.path)
         assert channel_positions.shape == (n_channels, 2)
 
-        if op.exists(filenames['features']):
+        if op.exists(op.join(self.path,filenames['features'])):
             logger.debug("Loading features.")
-            all_features = np.load(filenames['features'], mmap_mode='r')
-            features_ind = read_array('features_ind').astype(np.int32)
+            all_features = np.load(op.join(self.path,filenames['features']), mmap_mode='r')
+            features_ind = read_array('features_ind',path=self.path).astype(np.int32)
             # Feature subset.
-            if op.exists(filenames['features_spike_ids']):
-                features_spike_ids = read_array('features_spike_ids') \
+            if op.exists(op.join(self.path,filenames['features_spike_ids'])):
+                features_spike_ids = read_array('features_spike_ids',path=self.path) \
                     .astype(np.int32)
                 assert len(features_spike_ids) == len(all_features)
                 self.features_spike_ids = features_spike_ids
@@ -366,11 +448,11 @@ class TemplateController(Controller):
         self.all_features = all_features
         self.features_ind = features_ind
 
-        if op.exists(filenames['template_features']):
+        if op.exists(op.join(self.path,filenames['template_features'])):
             logger.debug("Loading template features.")
-            template_features = np.load(filenames['template_features'],
+            template_features = np.load(op.join(self.path,filenames['template_features']),
                                         mmap_mode='r')
-            template_features_ind = read_array('template_features_ind'). \
+            template_features_ind = read_array('template_features_ind',path=self.path). \
                 astype(np.int32)
             template_features_ind = template_features_ind.copy()
             n_sim_tem = template_features.shape[1]
@@ -451,19 +533,19 @@ class TemplateController(Controller):
 
         # Read the cluster groups.
         logger.debug("Loading the cluster groups.")
-        self.cluster_groups = load_metadata(filenames['cluster_groups'],
+        self.cluster_groups = load_metadata(op.join(self.path,filenames['cluster_groups']),
                                             self.cluster_ids)
-
+    
     def _set_manual_clustering(self):
         super(TemplateController, self)._set_manual_clustering()
         mc = self.manual_clustering
         # Load labels.
         files = glob.glob('*.csv')
         for filename in files:
-            if filename == 'cluster_groups.csv':
+            if filename in ('cluster_groups.csv','cluster_names.csv'):
                 continue
             field_name = op.basename(filename)
-            values = load_metadata(filename, self.cluster_ids)
+            values = load_metadata(op.join(self.path,filename), self.cluster_ids)
             for cluster_id in self.cluster_ids:
                 mc.cluster_meta.set(field_name, [cluster_id],
                                     values.get(cluster_id, None),
@@ -712,7 +794,7 @@ class TemplateController(Controller):
         return sorted(out, key=itemgetter(1), reverse=True)
 
     def add_amplitude_view(self, gui):
-        v = AmplitudeView(coords=self.get_amplitudes)
+        v = AmplitudeView(coords=self.get_amplitudes,sample_rate=self.sample_rate,path=self.path,mc=self.manual_clustering)
         return self._add_view(gui, v)
 
     def add_feature_template_view(self, gui):
@@ -752,12 +834,12 @@ class TemplateController(Controller):
         @gui.connect_
         def on_request_save(spike_clusters, groups, *labels):
             # Save the clusters.
-            np.save(filenames['spike_clusters'], spike_clusters)
+            np.save(op.join(self.path,filenames['spike_clusters']), spike_clusters)
             # Save cluster groups.
-            save_metadata(filenames['cluster_groups'], 'group', groups)
+            save_metadata(op.join(self.path,filenames['cluster_groups']), 'group', groups)
             # Save other labels.
             for field_name, dic in labels:
-                save_metadata('cluster_%s.csv' % field_name, field_name, dic)
+                save_metadata(op.join(self.path,'cluster_%s.csv' % field_name), field_name, dic)
 
         # Save the memcache when closing the GUI.
         @gui.connect_
