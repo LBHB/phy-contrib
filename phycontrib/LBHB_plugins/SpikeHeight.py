@@ -49,8 +49,8 @@ class SpikeHeight(IPlugin):
             # data.data is a (n_spikes, n_samples, n_channels) array.
             data = controller.get_waveforms(cluster_id)[0]
             #(n_spikes, n_samples, n_channels)
-            m=data.data.max()
-            m=abs(data.data.min())
+            #m=data.data.max()
+            #m=abs(data.data.min())
             m=abs(data.data.mean(0).min()) # mean over selected spikes, min over all samples and channels
             print('Cluster {:d} has shape {}, metric is {:.2f}'.format(cluster_id,data.data.shape,m))
             return m
