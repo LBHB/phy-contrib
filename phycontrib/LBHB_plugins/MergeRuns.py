@@ -229,8 +229,9 @@ class MergeRuns(IPlugin):
                         #plugin.table.setHorizontalHeaderItem(row, QtGui.QTableWidgetItem('{:.0f}'.format(controller.cluster_ids[plugin.m_inds[row]])))
                     for col in range(plugin.dists.shape[1]):
                         c_id=controller2.cluster_ids[plugin.sortrows[col]]
-                        height=controller2.manual_clustering.cluster_view._columns['height']['func'](c_id)
-                        plugin.table.setVerticalHeaderItem(col, QtGui.QTableWidgetItem('{:.0f}-{:.1f}'.format(c_id,height)))
+                        #height=controller2.manual_clustering.cluster_view._columns['height']['func'](c_id)
+                        snr=controller2.manual_clustering.cluster_view._columns['snr']['func'](c_id)
+                        plugin.table.setVerticalHeaderItem(col, QtGui.QTableWidgetItem('{:.0f}-{:.1f}'.format(c_id,snr)))
                     plugin.table.resizeColumnsToContents()
                     plugin.table.itemClicked.connect(handle_item_clicked)
     
@@ -326,14 +327,15 @@ class MergeRuns(IPlugin):
                     plugin.dists=np.append(plugin.dists,calc_dists(controller,controller2,plugin.m_inds,s_inds=plugin.dists.shape[1]),axis=1)
                     plugin.sortrows=np.argsort(plugin.matchi)
                     
-                @actions.add(menu='Merge',name='Move low-amplitude clusters to noise',shortcut='n')
-                def move_low_amp_to_noise(plugin=plugin,controller=controller,controller2=controller2):
+                @actions.add(menu='Merge',name='Move low-snr clusters to noise',shortcut='n')
+                def move_low_snr_to_noise(plugin=plugin,controller=controller,controller2=controller2):
                     cluster_ids=controller2.cluster_ids
-                    heights=np.zeros(cluster_ids.shape)
+                    snrs=np.zeros(cluster_ids.shape)
                     for i in range(len(cluster_ids)):
-                        heights[i]=controller2.manual_clustering.cluster_view._columns['height']['func'](cluster_ids[i])
-                    thresh=0.2
-                    noise_clusts=cluster_ids[heights<thresh]
+                        snrs[i]=controller2.manual_clustering.cluster_view._columns['snr']['func'](cluster_ids[i])
+                    thresh=0.2 # for amplitude
+                    thresh=0.5 # for snr
+                    noise_clusts=cluster_ids[snrs<thresh]
                     
                     n_ind=[]
                     for clu in noise_clusts:
