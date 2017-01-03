@@ -157,9 +157,10 @@ class AmplitudeView(ScatterView):
                 assert n_spikes > 0
                 assert x.shape == (n_spikes,)
                 assert y.shape == (n_spikes,)
-                if self.show_block_gap:
-                    line_times=self.blockstarts_time
+                if self.show_block_gap:                    
                     gap_times=self.blockstarts_time[1:]-self.blocksizes_time[:-1].cumsum()
+                    line_times=self.blockstarts_time
+                    grey_line_times=self.blockstarts_time[1:]-gap_times
                     data_bounds[2]=self.blockstarts_time[-1]+self.blocksizes_time[-1]
                     for j in range(len(gap_times)):
                         x[np.logical_and(d.x>self.blocksizes_time[:j+1].sum(),d.x<self.blocksizes_time[:j+2].sum())]+=gap_times[j]
@@ -176,6 +177,9 @@ class AmplitudeView(ScatterView):
             if self.show_block_lines:
                 for time in line_times:
                     self.lines(pos=[time, data_bounds[1], time, data_bounds[3]],color=(1, 1, 1, 1),data_bounds=data_bounds)
+            if self.show_block_gap:
+               for time in grey_line_times:
+                    self.lines(pos=[time, data_bounds[1], time, data_bounds[3]],color=(.4, .4, .4, 1),data_bounds=data_bounds)
      
            
         
