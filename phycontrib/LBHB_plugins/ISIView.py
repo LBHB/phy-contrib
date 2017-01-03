@@ -1,6 +1,6 @@
 """Interspike interval view plugin.
 
-This plugin adds an interactive matplotlib figure showing the ISI histograms of
+This plugin adds a matplotlib figure showing the ISI histograms of
 the selected clusters.
 
 To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
@@ -10,7 +10,7 @@ to your `~/.phy/phy_config.py`:
 c.TemplateGUI.plugins = ['ISIView']
 ```
 
-Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2016
 """
 
 from phy import IPlugin
