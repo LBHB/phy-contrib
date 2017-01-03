@@ -146,7 +146,7 @@ class MergeRuns(IPlugin):
                 su_order=np.argsort(su_best_channels)
                 mu_order=np.argsort(mu_best_channels)
                 m_inds=np.concatenate((su_inds[su_order],mu_inds[mu_order]))
-                
+
                 filename=op.join(controller.path,'cluster_names.csv')
                 if not op.exists(filename):                
                     best_channels=np.concatenate((su_best_channels[su_order],mu_best_channels[mu_order]))
@@ -418,9 +418,10 @@ class MergeRuns(IPlugin):
                 @actions.add(menu='Merge',name='Save cluster associations',alias='sca')   
                 def save_cluster_associations(plugin=plugin,controller=controller,controller2=controller2):
                     un_matchi,counts=np.unique(plugin.matchi, return_index=False, return_inverse=False, return_counts=True)                    
-                    rmi=np.where(plugin.unit_type[un_matchi]==3)[0][0]
-                    un_matchi=np.delete(un_matchi,rmi)
-                    counts=np.delete(counts,rmi)
+                    rmi=np.where(plugin.unit_type[un_matchi]==3)[0]
+                    if(len(rmi)>0):
+                        un_matchi=np.delete(un_matchi,rmi)
+                        counts=np.delete(counts,rmi)
                     if np.any(counts>1):
                         msgBox = QtGui.QMessageBox()
                         msgBox.setText('There are {} master clusters that are about '
@@ -457,10 +458,10 @@ class MergeRuns(IPlugin):
                     
                     #save associations                    
                     create_csv(op.join(controller.path,'cluster_names.csv'),
-                        controller.cluster_ids[plugin.m_inds[plugin.m_inds!=-1]],
-                        plugin.unit_type[plugin.m_inds!=-1],
-                        plugin.best_channels[plugin.m_inds!=-1],
-                        plugin.unit_number[plugin.m_inds!=-1])
+                        controller.cluster_ids[plugin.m_inds[~np.in1d(plugin.m_inds,(-1,-2))]],
+                        plugin.unit_type[~np.in1d(plugin.m_inds,(-1,-2))],
+                        plugin.best_channels[~np.in1d(plugin.m_inds,(-1,-2))],
+                        plugin.unit_number[~np.in1d(plugin.m_inds,(-1,-2))])
                     create_csv(op.join(controller2.path,'cluster_names.csv'),
                         controller2.cluster_ids[plugin.sortrows],
                         plugin.unit_type[plugin.matchi[plugin.sortrows]],
