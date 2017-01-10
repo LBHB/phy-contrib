@@ -31,7 +31,7 @@ class ExportSNRs(IPlugin):
         
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_create_gui(gui):
+        def on_gui_ready(gui):
            
             
             actions = Actions(gui)
@@ -39,20 +39,27 @@ class ExportSNRs(IPlugin):
             def ExportSNRs(max_waveforms_per_cluster=1E3,controller=controller):
                 #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
                 print('Exporting SNRs')
-                cluster_ids=controller.cluster_ids
-                snr=np.zeros((controller.n_channels,len(cluster_ids)))
+                cluster_ids=controller.supervisor.clustering.cluster_ids
+                snr=np.zeros((controller.model.n_channels_dat,len(cluster_ids)))
+                snr[:] = np.NAN
                 for i in range(len(cluster_ids)):
                     print('i={0},cluster={1}'.format(i,cluster_ids[i]))                    
                     if max_waveforms_per_cluster == 100 :
-                        all_waveforms = controller.get_waveforms(int(cluster_ids[i]))[0]
+                        all_data = controller._get_waveforms(int(cluster_ids[i]))
+                        data=all_data.data
+                        channel_ids=all_data.channel_ids
                     else:
-                        all_waveforms = controller._select_data(int(cluster_ids[i]),
-                                            controller.all_waveforms,
-                                            max_waveforms_per_cluster,
-                                            )                    
-                    noise_std=np.concatenate((all_waveforms.data[:,:10,:],all_waveforms.data[:,:10,:]),axis=1).std(axis=(0,1))
-                    sig_std=all_waveforms.data.mean(0).std(0)
-                    snr[:,i]=sig_std/noise_std
+                        spike_ids = controller.selector.select_spikes([cluster_ids[i]],
+                                                max_waveforms_per_cluster,
+                                                controller.batch_size_waveforms,
+                                                #subset='random', to get a random subset
+                                                )
+                        #channel_ids = controller.get_best_channels(cluster_ids[i])
+                        channel_ids=np.arange(controller.model.n_channels_dat) #gets all chnnels
+                        data = controller.model.get_waveforms(spike_ids, channel_ids)              
+                    noise_std=np.concatenate((data[:,:10,:],data[:,:10,:]),axis=1).std(axis=(0,1))
+                    sig_std=data.mean(0).std(0)
+                    snr[channel_ids,i]=sig_std/noise_std
                         
-                np.save(op.join(controller.path,'snrs.npy'),snr)
+                np.save(op.join(controller.model.dir_path,'snrs.npy'),snr)
                 print('Done exporting snrs')

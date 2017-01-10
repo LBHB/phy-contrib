@@ -26,18 +26,19 @@ class PlotClusterLocations(IPlugin):
         
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_create_gui(gui):
-            
-            self.text_handles=[None] * len(controller.cluster_ids)
-            self.color=[None] * len(controller.cluster_ids)
-            self.text_color=[None] * len(controller.cluster_ids)
+        def on_gui_ready(gui):
+
+            cluster_ids=controller.supervisor.clustering.cluster_ids
+            self.text_handles=[None] * len(cluster_ids)
+            self.color=[None] * len(cluster_ids)
+            self.text_color=[None] * len(cluster_ids)
             self.fig=[None]
             self.drawn=False
             @gui.connect_
-            def on_select(clusters,controller=controller):
+            def on_select(clusters,controller=controller,**kwargs):
                 if self.drawn:
-                    for i in range(len(controller.cluster_ids)):
-                        if any(controller.cluster_ids[i] == clusters):
+                    for i in range(len(cluster_ids)):
+                        if any(cluster_ids[i] == clusters):
                             self.text_handles[i].set_color('r')
                         else:
                             self.text_handles[i].set_color(self.text_color[i])
@@ -48,19 +49,21 @@ class PlotClusterLocations(IPlugin):
             actions = Actions(gui)
             @actions.add(alias='pcl') #shortcut='ctrl+p',
             def PlotClusterLocations(controller=controller):
+                cluster_ids=controller.supervisor.clustering.cluster_ids
                 print('Plotting Cluster Locations')
                 self.drawn=True
-                self.text_handles=[None] * len(controller.cluster_ids)
-                self.color=[None] * len(controller.cluster_ids)
-                self.text_color=[None] * len(controller.cluster_ids)
-                cluster_ids=controller.cluster_ids
+                self.text_handles=[None] * len(cluster_ids)
+                self.color=[None] * len(cluster_ids)
+                self.text_color=[None] * len(cluster_ids)
                 height=np.zeros(len(cluster_ids))
                 center_of_mass=np.zeros((len(cluster_ids),2))
-                type=np.zeros(len(cluster_ids), dtype=int)
+                type=np.zeros(len(cluster_ids), dtype=int) 
                 for i in range(len(cluster_ids)):
-                    data = controller.get_waveforms(int(cluster_ids[i]))[0]
+                    print(i)
+                    mv=np.zeros(controller.model.n_channels_dat)
+                    data = controller._get_waveforms(int(cluster_ids[i]))
                     height[i]=abs(data.data.mean(0).min())
-                    mv=-data.data.mean(0).min(0)
+                    mv[data.channel_ids]=-data.data.mean(0).min(0)
                     mv[mv<0]=0
                     if (any(mv) == False) or (any(-data.data.mean(0).min(0) > data.data.mean(0)[:2].mean(0)) ==  False):
                         #Quick fix for small-amplitude (usually noise) clusters
@@ -68,24 +71,27 @@ class PlotClusterLocations(IPlugin):
                         mv[controller.get_best_channel(cluster_ids[i])]=1
                         
                     mv=mv/mv.sum()
-                    center_of_mass[i,:]=(mv*controller.channel_positions.T).sum(1)
+                    center_of_mass[i,:]=(mv*controller.model.channel_positions.T).sum(1)
 
-                    if controller.cluster_groups[cluster_ids[i]] == 'good':
+                    if cluster_ids[i] not in controller.supervisor.cluster_groups.keys():
+                        type[i]=0
+                        self.color[i]=(1,1,1)
+                        self.text_color[i]=(1,1,1)
+                    elif controller.supervisor.cluster_groups[cluster_ids[i]] == 'good':
                         type[i]=3
                         self.color[i]=(0.5255,0.8196,0.4275)
                         self.text_color[i]=(1,1,1)
-                    elif controller.cluster_groups[cluster_ids[i]] == 'mua':
+                    elif controller.supervisor.cluster_groups[cluster_ids[i]] == 'mua':
                         type[i]=2
                         self.color[i]=(0,.7333,1)
                         self.text_color[i]=(1,1,1)
-                    elif controller.cluster_groups[cluster_ids[i]] == 'noise':
+                    elif controller.supervisor.cluster_groups[cluster_ids[i]] == 'noise':
                         type[i]=1
                         self.color[i]=(.5,.5,.5)
                         self.text_color[i]=(.5,.5,.5)
                     else:
-                        type[i]=0
-                        self.color[i]=(1,1,1)
-                        self.text_color[i]=(1,1,1)
+                        raise RuntimeError('Cluster group ({}) of cluster {} is unknown.'
+                            .format(controller.supervisor.cluster_groups[cluster_ids[i]],cluster_ids[i]))                    
                 
                 py.rc('xtick', color='w')        
                 py.rc('ytick', color='w')

@@ -22,9 +22,9 @@ from phy.utils._color import _spike_colors
 
 class ISIView(IPlugin):
     def attach_to_controller(self, controller):
-
+            
         @controller.connect
-        def on_create_gui(gui):
+        def on_gui_ready(gui,**kwargs):
             # Called when the GUI is created.
 
             # Create the figure when initializing the GUI.
@@ -57,7 +57,7 @@ class ISIView(IPlugin):
             # We connect this function to the "select" event triggered
             # by the GUI at every cluster selection change.
             @gui.connect_
-            def on_select(clusters,tf=f,tax=ax,bins=bins):
+            def on_select(clusters,tf=f,tax=ax,bins=bins,**kwargs):
                 # We clear the figure.
                 tax.clear()
                 colors = _spike_colors(np.arange(len(clusters)))
@@ -65,7 +65,7 @@ class ISIView(IPlugin):
                 for i in range(len(clusters)):
                     if len(clusters) == 1 :
                         colors[i][3]=1
-                    spikes = 1000*controller.spike_times[controller.spike_clusters == clusters[i]]
+                    spikes = 1000*controller.model.spike_times[controller.model.spike_clusters == clusters[i]]
                     #hist,bin_edges=np.histogram(np.diff(spikes), bins=bins)
                     #ax.bar(bin_edges[:-1], hist, width = 1, edgecolor = 'None', facecolor = colors[i])
                     #ax.plot(bin_edges[:-1], hist, color = colors[i])

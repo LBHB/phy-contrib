@@ -8,7 +8,7 @@ to your `~/.phy/phy_config.py`:
 ```python
 c.TemplateGUI.plugins = ['AmplitudeHistogram']
 ```
-Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2016
 """
 
 from phy import IPlugin
@@ -43,7 +43,7 @@ class AmplitudeHistogram(IPlugin):
             g[x<xcut]=0            
             return g
         @controller.connect
-        def on_create_gui(gui):
+        def on_gui_ready(gui):
             # Called when the GUI is created.
             
             # We add the matplotlib figure to the GUI.
@@ -52,14 +52,14 @@ class AmplitudeHistogram(IPlugin):
             # We connect this function to the "select" event triggered
             # by the GUI at every cluster selection change.
             @gui.connect_
-            def on_select(clusters):
+            def on_select(clusters,**kwargs):
                 ax.clear()
                 colors = _spike_colors(np.arange(len(clusters)))      
                 maxs=np.zeros(len(clusters))    
                 was_fit=np.zeros(len(clusters),dtype=bool)
                 for i in range(len(clusters)):
                     #plot the amplitude histogram
-                    coords=controller.get_amplitudes(clusters[i])        
+                    coords=controller._get_amplitudes(clusters[i])        
                     if len(clusters) == 1 :
                         colors[i][3]=1
                     num, bins, patches = ax.hist(coords.y,bins=50,facecolor=colors[i],edgecolor='none',orientation='horizontal')

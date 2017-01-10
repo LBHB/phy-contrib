@@ -21,26 +21,31 @@ from vispy import visuals as vis
 from vispy.app import Canvas
 from phy.plot import View
 from phy.utils._color import _spike_colors, ColorSelector, _colormap
-from phy.cluster.manual.views import (select_traces, ScatterView)
+from phy.cluster.views.scatter import ScatterView
+from phy.cluster.views.trace import select_traces
 
 class FeatureTemplateTime(ScatterView):
-    pass
+    _callback_delay = 100
+    
+    def _get_data(self, cluster_ids):
+        b = self.coords(cluster_ids)
+        return b
 
 class FeatureTemplateTimeView(IPlugin):
     def get_template_projections(self,cluster_ids):
         if len(cluster_ids) < 1 :
             return None
 
-        ni = self.controller.get_cluster_templates(cluster_ids[0])
+        ni = self.controller.get_template_counts(cluster_ids[0])
         x_min=np.inf
         x_max=-np.inf
         y_min=np.inf
         y_max=-np.inf
         out=list()
         for cid in cluster_ids:
-            si = self.controller._select_spikes(cid, self.controller.n_spikes_features)
-            ti = self.controller._get_template_features(si)
-            x  = self.controller.spike_times[si]
+            si = self.controller._get_spike_ids(cid, self.controller.n_spikes_features)
+            ti = self.controller.model.get_template_features(si)
+            x  = self.controller.model.spike_times[si]
             y  = np.average(ti, weights=ni, axis=1)
             # Compute the data bounds.
             x_min = min(x.min(), x_min)
@@ -58,7 +63,7 @@ class FeatureTemplateTimeView(IPlugin):
         self.controller=controller
         # Create the figure when initializing the GUI.
         @controller.connect
-        def on_create_gui(gui):
+        def on_gui_ready(gui):
             # Called when the GUI is created.
             view = FeatureTemplateTime(coords=self.get_template_projections)
 #            @gui.connect_

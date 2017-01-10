@@ -9,7 +9,7 @@ to your `~/.phy/phy_config.py`:
 c.TemplateGUI.plugins = ['SpikeHeight']
 ```
 
-Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2016
 adapted from custom_stats.py example
 """
 
@@ -30,27 +30,29 @@ class SpikeHeight(IPlugin):
 
         """
 
-        # The controller defines several objects for the GUI.
+        @controller.connect
+        def on_gui_ready(gui):
+            # The controller defines several objects for the GUI.
 
-        # The ManualClustering instance is responsible for the manual
-        # clustering logic and the cluster views.
-        mc = controller.manual_clustering
-
-        # The context provides `cache()` and `memcache()` methods to cache
-        # functions on disk or in memory, respectively.
-        ctx = controller.context
-
-        # We add a column in the cluster view and set it as the default.
-        @mc.add_column(default=True)
-        # We memcache it.
-        @ctx.memcache
-        def height(cluster_id):
-            # This function takes a cluster id as input and returns a scalar.
-            # data.data is a (n_spikes, n_samples, n_channels) array.
-            data = controller.get_waveforms(cluster_id)[0]
-            #(n_spikes, n_samples, n_channels)
-            #m=data.data.max()
-            #m=abs(data.data.min())
-            m=abs(data.data.mean(0).min()) # mean over selected spikes, min over all samples and channels
-            print('Cluster {:d} has shape {}, metric is {:.2f}'.format(cluster_id,data.data.shape,m))
-            return m
+            # The supervisor instance is responsible for the manual
+            # clustering logic and the cluster views.
+            sup = controller.supervisor
+    
+            # The context provides `cache()` and `memcache()` methods to cache
+            # functions on disk or in memory, respectively.
+            ctx = controller.context
+    
+            # We add a column in the cluster view and set it as the default.
+            @sup.add_column(default=True)
+            # We memcache it.
+            @ctx.memcache
+            def height(cluster_id):
+                # This function takes a cluster id as input and returns a scalar.
+                # data.data is a (n_spikes, n_samples, n_channels) array.
+                data = controller._get_waveforms(cluster_id)
+                #(n_spikes, n_samples, n_channels)
+                #m=data.data.max()
+                #m=abs(data.data.min())
+                m=abs(data.data.mean(0).min()) # mean over selected spikes, min over all samples and channels
+                print('Cluster {:d} has shape {}, metric is {:.2f}'.format(cluster_id,data.data.shape,m))
+                return m

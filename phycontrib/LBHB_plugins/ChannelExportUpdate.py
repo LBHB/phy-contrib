@@ -10,31 +10,8 @@ to your `~/.phy/phy_config.py`:
 c.TemplateGUI.plugins = ['ChannelExportUpdate']
 ```
 
-Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
+Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2016
 """
-filenames = {
-    'spike_templates': 'spike_templates.npy',
-    'spike_clusters': 'spike_clusters.npy',
-    'cluster_groups': 'cluster_groups.csv',
-
-    'spike_samples': 'spike_times.npy',
-    'amplitudes': 'amplitudes.npy',
-    'templates': 'templates.npy',
-    'templates_unw': 'templates_unw.npy',
-
-    'channel_mapping': 'channel_map.npy',
-    'channel_positions': 'channel_positions.npy',
-    'whitening_matrix': 'whitening_mat.npy',
-
-    'features': 'pc_features.npy',
-    'features_ind': 'pc_feature_ind.npy',
-    'features_spike_ids': 'pc_feature_spike_ids.npy',
-
-    'template_features': 'template_features.npy',
-    'template_features_ind': 'template_feature_ind.npy',
-
-    'similar_templates': 'similar_templates.npy',
-}
 
 import numpy as np
 from phy import IPlugin
@@ -44,13 +21,12 @@ class ChannelExportUpdate(IPlugin):
         
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_create_gui(gui):
-            @gui.connect_
-            def on_request_save(spike_clusters, groups, controller=controller):
-                                
+        def on_gui_ready(gui,**kwargs):
+            @controller.supervisor.connect
+            def on_request_save(spike_clusters, groups, labels, controller=controller):              
                 cluster_ids=sorted(groups)
                 best_channels = np.zeros(len(cluster_ids))
                 for i in range(len(cluster_ids)):
                     best_channels[i]=controller.get_best_channel(cluster_ids[i])
-                np.save(op.join(controller.path,'best_channels.npy'),best_channels)
+                np.save(op.join(controller.model.dir_path,'best_channels.npy'),best_channels)
                                 

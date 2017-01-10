@@ -36,25 +36,34 @@ import time
 
 def create_mean_waveforms(controller,max_waveforms_per_cluster=1E4,cluster_ids=None):
     if cluster_ids is None: 
-        cluster_ids=controller.cluster_ids
+        cluster_ids=controller.supervisor.clustering.cluster_ids
     else:
         cluster_ids=np.atleast_1d(cluster_ids)
-    mean_waveforms=np.zeros((controller.n_channels,controller.n_samples_templates,len(cluster_ids)))
+    mean_waveforms=np.zeros((controller.model.n_channels_dat,controller.model.n_samples_templates,len(cluster_ids)))
     print(len(cluster_ids))
     for i in range(len(cluster_ids)):
         #print('i={0},cluster={1}'.format(i,cluster_ids[i]))
         print('{}'.format(i),end=' ')
         sys.stdout.flush()
-        all_waveforms = controller._select_data(int(cluster_ids[i]),
-                                controller.all_waveforms,
-                                max_waveforms_per_cluster,
-                                )
-        mean_waveforms[:,:,i]=np.rollaxis(all_waveforms.data.mean(0),1)
+        if max_waveforms_per_cluster == 100 :
+            all_data = controller._get_waveforms(int(cluster_ids[i]))
+            data=all_data.data
+            channel_ids=all_data.channel_ids
+        else:
+            spike_ids = controller.selector.select_spikes([cluster_ids[i]],
+                                    max_waveforms_per_cluster,
+                                    controller.batch_size_waveforms,
+                                    #subset='random', to get a random subset
+                                    )
+            #channel_ids = controller.get_best_channels(cluster_ids[i])
+            channel_ids=np.arange(controller.model.n_channels_dat) #gets all chnnels
+            data = controller.model.get_waveforms(spike_ids, channel_ids)              
+        mean_waveforms[channel_ids,:,i]=np.rollaxis(data.mean(0),1)
     return mean_waveforms
 
 def calc_dists(controller,controller2,m_inds,s_inds=None):
     if s_inds is None:
-        s_inds=np.arange(controller2.cluster_ids.shape[0])
+        s_inds=np.arange(controller2.supervisor.clustering.cluster_ids.shape[0])
     m_inds=np.atleast_1d(m_inds)
     s_inds=np.atleast_1d(s_inds)
     shifts=np.arange(-4,4)
@@ -74,6 +83,10 @@ def calc_dists(controller,controller2,m_inds,s_inds=None):
                 dists[i,j]=dist.min()
     return dists
 def load_metadata(filename,cluster_ids):
+    from PyQt4.QtCore import pyqtRemoveInputHook
+    from pdb import set_trace
+    pyqtRemoveInputHook()
+    set_trace()  
     unit_types = np.zeros(cluster_ids.shape)
     channels = np.zeros(cluster_ids.shape)
     unit_numbers = np.zeros(cluster_ids.shape)
@@ -100,54 +113,54 @@ class MergeRuns(IPlugin):
         
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_create_gui(gui, plugin=self):
+        def on_gui_ready(gui, plugin=self):
 
             actions = Actions(gui)
             @actions.add(alias='mr')            
             def MergeRuns(controller=controller, plugin=plugin):
-                if True:
+                if False:
                     path2 = QtGui.QFileDialog.getExistingDirectory(
                     None,
                     "Select the results folder for the sort to be merged",
-                    op.dirname(op.dirname(controller.path)), #two folders up from the current phy's path
+                    op.dirname(op.dirname(controller.model.dir_path)), #two folders up from the current phy's path
                     QtGui.QFileDialog.ShowDirsOnly
                     )
                 else:
-                    path2='/auto/data/daq/Boleto/BOL005/tmp/KiloSort/BOL005c_11_96clusts/results/'
+                    path2='/home/luke/KiloSort_tmp/BOL005c_9_96clusts/results'
                 params_path=op.join(path2,'params.py')
                 params = _read_python(params_path)
                 params['dtype'] = np.dtype(params['dtype'])
                 params['path']=path2
+                if op.realpath(params['dat_path']) != params['dat_path'] :
+                    params['dat_path']=op.join(path2,params['dat_path'])
                 print('Loading {}'.format(path2))                
                 controller2=TemplateController(**params)
                 #controller2.gui_name = 'TemplateGUI2'
                 gui2 = controller2.create_gui()
                 gui2.show()
-                                 
-                
                                 
 #                @gui2.connect_
 #                def on_select(clusters,controller2=controller2):  
-#                    controller.manual_clustering.select(clusters)
+#                    controller.supervisor.select(clusters)
 
                     
                 #create mean_waveforms for each controller (run)
                 print('computing mean waveforms for master run...')
                 controller.mean_waveforms=create_mean_waveforms(controller,max_waveforms_per_cluster=100)
                 print('computing mean waveforms for slave run...')
-                controller2.mean_waveforms=create_mean_waveforms(controller2,max_waveforms_per_cluster=100)
-                
-                groups = {c: controller.manual_clustering.cluster_meta.get('group', c) or 'unsorted' for c in controller.cluster_ids}
-                groups2 = {c: controller2.manual_clustering.cluster_meta.get('group', c) or 'unsorted' for c in controller2.cluster_ids}
-                su_inds=np.nonzero([controller.manual_clustering.cluster_meta.get('group', c) == 'good' for c in controller.cluster_ids])[0]
-                mu_inds=np.nonzero([controller.manual_clustering.cluster_meta.get('group', c) == 'mua' for c in controller.cluster_ids])[0]
-                su_best_channels=np.array([controller.get_best_channel(c) for c in controller.cluster_ids[su_inds]])
-                mu_best_channels=np.array([controller.get_best_channel(c) for c in controller.cluster_ids[mu_inds]])
+                controller2.mean_waveforms=create_mean_waveforms(controller2,max_waveforms_per_cluster=100) 
+
+                groups = {c: controller.supervisor.cluster_meta.get('group', c) or 'unsorted' for c in controller.supervisor.clustering.cluster_ids}
+                groups2 = {c: controller2.supervisor.cluster_meta.get('group', c) or 'unsorted' for c in controller2.supervisor.clustering.cluster_ids}
+                su_inds=np.nonzero([controller.supervisor.cluster_meta.get('group', c) == 'good' for c in controller.supervisor.clustering.cluster_ids])[0]
+                mu_inds=np.nonzero([controller.supervisor.cluster_meta.get('group', c) == 'mua' for c in controller.supervisor.clustering.cluster_ids])[0]
+                su_best_channels=np.array([controller.get_best_channel(c) for c in controller.supervisor.clustering.cluster_ids[su_inds]])
+                mu_best_channels=np.array([controller.get_best_channel(c) for c in controller.supervisor.clustering.cluster_ids[mu_inds]])
                 su_order=np.argsort(su_best_channels)
                 mu_order=np.argsort(mu_best_channels)
                 m_inds=np.concatenate((su_inds[su_order],mu_inds[mu_order]))
 
-                filename=op.join(controller.path,'cluster_names.csv')
+                filename=op.join(controller.model.dir_path,'cluster_names.tsv')
                 if not op.exists(filename):                
                     best_channels=np.concatenate((su_best_channels[su_order],mu_best_channels[mu_order]))
                     unit_type=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
@@ -157,14 +170,14 @@ class MergeRuns(IPlugin):
                         unit_number[matched_clusts]=np.arange(sum(matched_clusts))+1
                 else: 
                     print('{} exists, loading'.format(filename))
-                    unit_types, channels, unit_numbers = load_metadata(filename,controller.cluster_ids)
+                    unit_types, channels, unit_numbers = load_metadata(filename,controller.supervisor.clustering.cluster_ids)
                     best_channels=channels[m_inds]
                     unit_number=unit_numbers[m_inds]
                     unit_type=unit_types[m_inds]
                     unit_type_current=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
                     if ~np.all(unit_type==unit_type_current):
-                        raise RuntimeError('For the master phy, the unit types saved in "cluster_names.csv"' 
-                        'do not match those save in "cluster_groups.csv" This likely means work was done on '
+                        raise RuntimeError('For the master phy, the unit types saved in "cluster_names.tsv"' 
+                        'do not match those save in "cluster_groups.tsv" This likely means work was done on '
                         'this phy after merging with a previous master. Not sure how to deal with this!')
                     #re-sort to make unit numbers in order
                     # assuming unit_type is already sorted (which it should be...)                    
@@ -187,15 +200,15 @@ class MergeRuns(IPlugin):
                     row = np.array([cell.row() for cell in table.selectedIndexes()])
                     column = np.array([cell.column() for cell in table.selectedIndexes()])
                     print("Row {} and Column {} was clicked".format(row,column))                    
-                    print("M {} S {} ".format(controller.cluster_ids[plugin.m_inds[column]], controller2.cluster_ids[plugin.sortrows[row]]))
-                    column=column[plugin.m_inds[column] != -1]
+                    print("M {} S {} ".format(controller.supervisor.clustering.cluster_ids[plugin.m_inds[column]], controller2.supervisor.clustering.cluster_ids[plugin.sortrows[row]]))
+                    column=column[~np.in1d(plugin.m_inds[column] ,(-1,-2))]
                     if len(column) == 0:
                         pass
-                        #controller.manual_clustering.select(None)  
+                        #controller.supervisor.select(None)  
                         # make a deselect function and call it here if feeling fancy
                     else:
-                        controller.manual_clustering.select(controller.cluster_ids[plugin.m_inds[column]].tolist())                    
-                    controller2.manual_clustering.select(controller2.cluster_ids[plugin.sortrows[row]].tolist())
+                        controller.supervisor.select(controller.supervisor.clustering.cluster_ids[plugin.m_inds[column]].tolist())                    
+                    controller2.supervisor.select(controller2.supervisor.clustering.cluster_ids[plugin.sortrows[row]].tolist())
                     #print("Row %d and Column %d was clicked" % (row, column))                    
     
                 def create_table(controller,controller2,plugin): 
@@ -205,7 +218,7 @@ class MergeRuns(IPlugin):
                      # set data
                     dists_txt=np.round(plugin.dists/plugin.dists.max()*100)
                     normal = plt.Normalize(plugin.dists[plugin.dists!=-1].min()-1, plugin.dists.max()+1)
-                    colors=plt.cm.viridis_r(normal(plugin.dists))*255
+                    colors=plt.cm.viridis_r(normal(plugin.dists))*255                   
                     for col in range(len(plugin.m_inds)):
                         for row in range(len(plugin.matchi)):
                             if plugin.dists[col,plugin.sortrows[row]] < 0:
@@ -216,6 +229,7 @@ class MergeRuns(IPlugin):
                                 item.setBackground(QtGui.QColor(colors[col,plugin.sortrows[row],0],colors[col,plugin.sortrows[row],1],colors[col,plugin.sortrows[row],2]))
                             if plugin.matchi[plugin.sortrows[row]] == col:
                                 item.setForeground(QtGui.QColor(255,0,0))
+                            #item.setFlags(Qt.ItemIsEditable)
                             plugin.table.setItem(row,col,item)
                             #plugin.table.item(row,col).setForeground(QtGui.QColor(0,255,0)) 
                     for col in range(plugin.dists.shape[0]):
@@ -224,14 +238,15 @@ class MergeRuns(IPlugin):
                         elif plugin.m_inds[col] == -2:
                             cluster_num='Noise'
                         else:
-                            cluster_num=controller.cluster_ids[plugin.m_inds[col]]
+                            cluster_num=controller.supervisor.clustering.cluster_ids[plugin.m_inds[col]]
                         plugin.table.setHorizontalHeaderItem(col, QtGui.QTableWidgetItem('{}\n{:.0f}-{:.0f}'.format(cluster_num,plugin.best_channels[col],plugin.unit_number[col])))
-                        #plugin.table.setHorizontalHeaderItem(row, QtGui.QTableWidgetItem('{:.0f}'.format(controller.cluster_ids[plugin.m_inds[row]])))
+                        #plugin.table.setHorizontalHeaderItem(row, QtGui.QTableWidgetItem('{:.0f}'.format(controller.supervisor.clustering.cluster_ids[plugin.m_inds[row]])))
                     for col in range(plugin.dists.shape[1]):
-                        c_id=controller2.cluster_ids[plugin.sortrows[col]]
-                        #height=controller2.manual_clustering.cluster_view._columns['height']['func'](c_id)
-                        snr=controller2.manual_clustering.cluster_view._columns['snr']['func'](c_id)
+                        c_id=controller2.supervisor.clustering.cluster_ids[plugin.sortrows[col]]
+                        #height=controller2.supervisor.cluster_view._columns['height']['func'](c_id)
+                        snr=controller2.supervisor.cluster_view._columns['snr']['func'](c_id)
                         plugin.table.setVerticalHeaderItem(col, QtGui.QTableWidgetItem('{:.0f}-{:.1f}'.format(c_id,snr)))
+                    plugin.table.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
                     plugin.table.resizeColumnsToContents()
                     plugin.table.itemClicked.connect(handle_item_clicked)
     
@@ -240,7 +255,7 @@ class MergeRuns(IPlugin):
 #                ax = self.fig.add_axes([0.15, 0.02, 0.83, 0.975])
 #                normal = plt.Normalize(dists.min()-1, dists.max()+1)
 #                dists_txt=np.round(dists/dists.max()*100)
-#                self.table=ax.table(cellText=dists_txt, rowLabels=controller.cluster_ids[m_inds], colLabels=controller2.cluster_ids, 
+#                self.table=ax.table(cellText=dists_txt, rowLabels=controller.supervisor.clustering.cluster_ids[m_inds], colLabels=controller2.supervisor.clustering.cluster_ids, 
 #                    colWidths = [0.03]*dists.shape[1], loc='center', 
 #                    cellColours=plt.cm.hot(normal(dists)))
 #                self.fig.show()
@@ -308,6 +323,10 @@ class MergeRuns(IPlugin):
                         plugin.tablegui.status_message=st                        
                         
                 def merge_slaves_by_array(plugin,controller,controller2,merge_matchis):
+                    from PyQt4.QtCore import pyqtRemoveInputHook
+                    from pdb import set_trace
+                    pyqtRemoveInputHook()
+                    set_trace() 
                     for merge_matchi in merge_matchis:
                         row=np.where(plugin.matchi[plugin.sortrows]==merge_matchi)[0]     
                         merge_slaves(plugin,controller,controller2,row)
@@ -316,12 +335,12 @@ class MergeRuns(IPlugin):
                     plugin.tablegui.show() 
                     
                 def merge_slaves(plugin,controller,controller2,row):
-                    controller2.manual_clustering.merge(controller2.cluster_ids[plugin.sortrows[row]].tolist())
+                    controller2.supervisor.merge(controller2.supervisor.clustering.cluster_ids[plugin.sortrows[row]].tolist())
                     assign_matchi=plugin.matchi[plugin.sortrows[row[0]]]
                     plugin.matchi=np.delete(plugin.matchi,plugin.sortrows[row], axis=0)
                     plugin.matchi=np.append(plugin.matchi,assign_matchi)
                     controller2.mean_waveforms=np.delete(controller2.mean_waveforms,plugin.sortrows[row],axis=2)
-                    new_mean_waveforms=create_mean_waveforms(controller2,max_waveforms_per_cluster=100,cluster_ids=controller2.cluster_ids[-1])
+                    new_mean_waveforms=create_mean_waveforms(controller2,max_waveforms_per_cluster=100,cluster_ids=controller2.supervisor.clustering.cluster_ids[-1])
                     controller2.mean_waveforms=np.append(controller2.mean_waveforms,new_mean_waveforms,axis=2)
                     plugin.dists=np.delete(plugin.dists,plugin.sortrows[row],axis=1) 
                     plugin.dists=np.append(plugin.dists,calc_dists(controller,controller2,plugin.m_inds,s_inds=plugin.dists.shape[1]),axis=1)
@@ -329,19 +348,24 @@ class MergeRuns(IPlugin):
                     
                 @actions.add(menu='Merge',name='Move low-snr clusters to noise',shortcut='n')
                 def move_low_snr_to_noise(plugin=plugin,controller=controller,controller2=controller2):
-                    cluster_ids=controller2.cluster_ids
+
+                    cluster_ids=controller2.supervisor.clustering.cluster_ids
                     snrs=np.zeros(cluster_ids.shape)
                     for i in range(len(cluster_ids)):
-                        snrs[i]=controller2.manual_clustering.cluster_view._columns['snr']['func'](cluster_ids[i])
+                        snrs[i]=controller2.supervisor.cluster_view._columns['snr']['func'](cluster_ids[i])
                     thresh=0.2 # for amplitude
                     thresh=0.5 # for snr
                     noise_clusts=cluster_ids[snrs<thresh]
                     
                     n_ind=[]
                     for clu in noise_clusts:
-                        this_ind=np.where(controller2.cluster_ids[plugin.sortrows]==clu)[0][0]
+                        this_ind=np.where(controller2.supervisor.clustering.cluster_ids[plugin.sortrows]==clu)[0][0]
                         n_ind.append(this_ind)
                     
+                    from PyQt4.QtCore import pyqtRemoveInputHook
+                    from pdb import set_trace
+                    pyqtRemoveInputHook()
+                    set_trace() 
                     ind=plugin.m_inds.shape[0] 
                     plugin.matchi[plugin.sortrows[n_ind]]=ind
                     plugin.m_inds=np.insert(plugin.m_inds,ind,-2)
@@ -417,6 +441,10 @@ class MergeRuns(IPlugin):
                     
                 @actions.add(menu='Merge',name='Save cluster associations',alias='sca')   
                 def save_cluster_associations(plugin=plugin,controller=controller,controller2=controller2):
+                    from PyQt4.QtCore import pyqtRemoveInputHook
+                    from pdb import set_trace
+                    pyqtRemoveInputHook()
+                    set_trace() 
                     un_matchi,counts=np.unique(plugin.matchi, return_index=False, return_inverse=False, return_counts=True)                    
                     rmi=np.where(plugin.unit_type[un_matchi]==3)[0]
                     if(len(rmi)>0):
@@ -445,40 +473,40 @@ class MergeRuns(IPlugin):
                         else:
                             return
                     # assign labels to slave phy's clusters based on master phy's labels
-                    good_clusts=controller2.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 1]].tolist()
-                    controller2.manual_clustering.move('good',good_clusts)
-                    mua_clusts=controller2.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 2]].tolist()
-                    controller2.manual_clustering.move('mua',mua_clusts)                      
-                    mua_clusts=controller2.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 3]].tolist()
-                    controller2.manual_clustering.move('noise',mua_clusts)                       
+                    good_clusts=controller2.supervisor.clustering.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 1]].tolist()
+                    controller2.supervisor.move('good',good_clusts)
+                    mua_clusts=controller2.supervisor.clustering.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 2]].tolist()
+                    controller2.supervisor.move('mua',mua_clusts)                      
+                    mua_clusts=controller2.supervisor.clustering.cluster_ids[plugin.sortrows[plugin.unit_type[plugin.matchi[plugin.sortrows]] == 3]].tolist()
+                    controller2.supervisor.move('noise',mua_clusts)                       
 
                     #save both master and slave  
-                    controller.manual_clustering.save()
-                    controller2.manual_clustering.save()
+                    controller.supervisor.save()
+                    controller2.supervisor.save()
                     
                     #save associations                    
-                    create_csv(op.join(controller.path,'cluster_names.csv'),
-                        controller.cluster_ids[plugin.m_inds[~np.in1d(plugin.m_inds,(-1,-2))]],
+                    create_tsv(op.join(controller.model.dir_path,'cluster_names.tsv'),
+                        controller.supervisor.clustering.cluster_ids[plugin.m_inds[~np.in1d(plugin.m_inds,(-1,-2))]],
                         plugin.unit_type[~np.in1d(plugin.m_inds,(-1,-2))],
                         plugin.best_channels[~np.in1d(plugin.m_inds,(-1,-2))],
                         plugin.unit_number[~np.in1d(plugin.m_inds,(-1,-2))])
-                    create_csv(op.join(controller2.path,'cluster_names.csv'),
-                        controller2.cluster_ids[plugin.sortrows],
+                    create_tsv(op.join(controller2.model.dir_path,'cluster_names.tsv'),
+                        controller2.supervisor.clustering.cluster_ids[plugin.sortrows],
                         plugin.unit_type[plugin.matchi[plugin.sortrows]],
                         plugin.best_channels[plugin.matchi[plugin.sortrows]],
                         plugin.unit_number[plugin.matchi[plugin.sortrows]])        
-                    with open(op.join(controller.path,'Merged_Files.txt'), 'a') as text_file:
-                        text_file.write('{} on {}\n'.format(controller2.path,time.strftime('%c')))
+                    with open(op.join(controller.model.dir_path,'Merged_Files.txt'), 'a') as text_file:
+                        text_file.write('{} on {}\n'.format(controller2.model.dir_path,time.strftime('%c')))
                     plugin.tablegui.status_message='Saved clusted associations'
                     print('Saved clusted associations')
-                def create_csv(filename,cluster_id,unit_type,channel,unit_number):
+                def create_tsv(filename,cluster_id,unit_type,channel,unit_number):
                     if sys.version_info[0] < 3:
                         file = open(filename, 'wb')
                     else:
                         file = open(filename, 'w', newline='')
                     with file as f:
                         writer = csv.writer(f, delimiter='\t')
-                        writer.writerow(['cluster_id', 'unit_type', 'channel', 'unit_number'])
+                        writer.writerow(['cluster_id', 'unit_type', 'chan', 'unit_number'])
                         for i in range(len(cluster_id)):
                             writer.writerow([cluster_id[i], unit_type[i],channel[i],unit_number[i]])
 
