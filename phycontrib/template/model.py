@@ -320,10 +320,6 @@ class TemplateModel(object):
     def _load_metadata(self):
         """Load cluster metadata from all CSV files in the data directory."""
         files = glob.glob(op.join(self.dir_path, '*.csv'))
-        from PyQt4.QtCore import pyqtRemoveInputHook
-        from pdb import set_trace
-        pyqtRemoveInputHook()
-        set_trace() 
         files.extend(glob.glob(op.join(self.dir_path, '*.tsv')))
         metadata = {}
         for filename in files:

@@ -420,13 +420,14 @@ class TemplateController(EventEmitter):
         cluster_ids = self.supervisor.selected
         if len(cluster_ids) == 0:
             return
+
         spc = self.supervisor.clustering.spikes_per_cluster
         spike_ids = spc[cluster_ids[0]]
         spike_times = m.spike_times[spike_ids]
         ind = np.searchsorted(spike_times, view.time)
         n = len(spike_times)
         view.go_to(spike_times[(ind + delta) % n])
-
+           
     def add_trace_view(self, gui):
         m = self.model
         v = TraceView(traces=self._get_traces,
