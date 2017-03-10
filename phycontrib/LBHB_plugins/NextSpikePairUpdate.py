@@ -41,7 +41,7 @@ class NextSpikePairUpdate(IPlugin):
                 except:
                     do_compute=True
                 if do_compute:
-                    print('computing...')
+                    print('computing spike pairs...')
                     spc = controller.supervisor.clustering.spikes_per_cluster
                     spike_ids = spc[cluster_ids[0]]
                     spike_times1 = m.spike_times[spike_ids]
@@ -57,6 +57,7 @@ class NextSpikePairUpdate(IPlugin):
                     self.times=(spike_times1[indexes[0]]+spike_times2[indexes[1]])/2
                     self.current_index=0
                     self.current_clusters=cluster_ids
+                    print('done')
                 else:
                     self.current_index += increment
                 if self.current_index == max_num:

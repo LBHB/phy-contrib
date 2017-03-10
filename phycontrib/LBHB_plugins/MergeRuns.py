@@ -83,10 +83,6 @@ def calc_dists(controller,controller2,m_inds,s_inds=None):
                 dists[i,j]=dist.min()
     return dists
 def load_metadata(filename,cluster_ids):
-    from PyQt4.QtCore import pyqtRemoveInputHook
-    from pdb import set_trace
-    pyqtRemoveInputHook()
-    set_trace()  
     unit_types = np.zeros(cluster_ids.shape)
     channels = np.zeros(cluster_ids.shape)
     unit_numbers = np.zeros(cluster_ids.shape)
@@ -118,7 +114,7 @@ class MergeRuns(IPlugin):
             actions = Actions(gui)
             @actions.add(alias='mr')            
             def MergeRuns(controller=controller, plugin=plugin):
-                if False:
+                if True:
                     path2 = QtGui.QFileDialog.getExistingDirectory(
                     None,
                     "Select the results folder for the sort to be merged",
