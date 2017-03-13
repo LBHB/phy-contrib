@@ -173,13 +173,18 @@ class KwikController(EventEmitter):
         return self.get_best_channels(cluster_id)[0]
 
     def get_best_channels(self, cluster_id):
+        """Only used in the trace view."""
         mm = self._get_mean_masks(cluster_id)
         channel_ids = np.argsort(mm)[::-1]
-        channel_ids = channel_ids[mm[channel_ids] > .1]
+        ind = mm[channel_ids] > .1
+        if np.sum(ind) > 0:
+            channel_ids = channel_ids[ind]
+        else:
+            channel_ids = channel_ids[:4]
         return channel_ids
 
     def get_cluster_position(self, cluster_id):
-        channel_id = self.get_best_channels(cluster_id)[0]
+        channel_id = self.get_best_channel(cluster_id)
         return self.model.channel_positions[channel_id]
 
     def get_probe_depth(self, cluster_id):
@@ -271,8 +276,8 @@ class KwikController(EventEmitter):
             n = nsf if not load_all else None
             return self.selector.select_spikes([cluster_id], n)
 
-    def _get_spike_times(self, cluster_id=None):
-        spike_ids = self._get_spike_ids(cluster_id)
+    def _get_spike_times(self, cluster_id=None, load_all=None):
+        spike_ids = self._get_spike_ids(cluster_id, load_all=load_all)
         return Bunch(data=self.model.spike_times[spike_ids],
                      lim=(0., self.model.duration))
 
@@ -311,7 +316,8 @@ class KwikController(EventEmitter):
         traces_interval = traces_interval[:, c]
 
         def gbc(cluster_id):
-            return c[self.get_best_channels(cluster_id)]
+            ch = self.get_best_channels(cluster_id)
+            return ch
 
         out = Bunch(data=traces_interval)
         out.waveforms = []
@@ -347,7 +353,7 @@ class KwikController(EventEmitter):
                       n_channels=m.n_channels,
                       sample_rate=m.sample_rate,
                       duration=m.duration,
-                      channel_labels=self.channel_vertical_order,
+                      channel_vertical_order=self.channel_vertical_order,
                       )
         self._add_view(gui, v)
 
@@ -370,6 +376,13 @@ class KwikController(EventEmitter):
             """Toggle between showing all spikes or selected spikes."""
             self._show_all_spikes = not self._show_all_spikes
             v.set_interval(force_update=True)
+
+        @gui.connect_
+        def on_spike_click(channel_id=None, spike_id=None, cluster_id=None):
+            # Select the corresponding cluster.
+            self.supervisor.select([cluster_id])
+            # Update the trace view.
+            v.on_select([cluster_id], force_update=True)
 
         return v
 
@@ -407,7 +420,8 @@ class KwikController(EventEmitter):
         self.supervisor.attach(gui)
 
         self.add_waveform_view(gui)
-        self.add_trace_view(gui)
+        if self.model.traces is not None:
+            self.add_trace_view(gui)
         self.add_feature_view(gui)
         self.add_correlogram_view(gui)
 

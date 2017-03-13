@@ -20,6 +20,7 @@ from phy.cluster.views import (WaveformView,
                                TraceView,
                                CorrelogramView,
                                ScatterView,
+                               ProbeView,
                                select_traces,
                                )
 from phy.cluster.views.trace import _iter_spike_waveforms
@@ -81,7 +82,7 @@ class TemplateController(EventEmitter):
         super(TemplateController, self).__init__()
         if model is None:
             assert dat_path
-            dat_path = op.realpath(dat_path)
+            dat_path = op.abspath(dat_path)
             self.model = TemplateModel(dat_path, **kwargs)
         else:
             self.model = model
@@ -105,7 +106,6 @@ class TemplateController(EventEmitter):
     def _set_cache(self):
         memcached = ('get_template_counts',
                      'get_template_for_cluster',
-                     'similarity',
                      'get_best_channel',
                      'get_best_channels',
                      'get_probe_depth',
@@ -239,6 +239,7 @@ class TemplateController(EventEmitter):
                                                 )
         channel_ids = self.get_best_channels(cluster_id)
         data = self.model.get_waveforms(spike_ids, channel_ids)
+        data = data - data.mean()
         return Bunch(data=data,
                      channel_ids=channel_ids,
                      channel_positions=pos[channel_ids],
@@ -284,7 +285,9 @@ class TemplateController(EventEmitter):
                      )
 
     def add_waveform_view(self, gui):
-        v = WaveformView(waveforms=self._get_waveforms,
+        f = (self._get_waveforms if self.model.traces is not None
+             else self._get_template_waveforms)
+        v = WaveformView(waveforms=f,
                          )
         v = self._add_view(gui, v)
 
@@ -293,6 +296,8 @@ class TemplateController(EventEmitter):
         @v.actions.add(shortcut='w')
         def toggle_templates():
             f, g = self._get_waveforms, self._get_template_waveforms
+            if self.model.traces is None:
+                return
             v.waveforms = f if v.waveforms == g else g
             v.on_select()
 
@@ -312,15 +317,20 @@ class TemplateController(EventEmitter):
         if cluster_id is None:
             # Background points.
             ns = self.model.n_spikes
-            return np.arange(0, ns, max(1, ns // nsf))
+            spike_ids = np.arange(0, ns, max(1, ns // nsf))
         else:
             # Load all spikes from the cluster if load_all is True.
             n = nsf if not load_all else None
-            return self.selector.select_spikes([cluster_id], n)
+            spike_ids = self.selector.select_spikes([cluster_id], n)
+        # Remove spike_ids that do not belong to model.features_rows
+        if self.model.features_rows is not None:
+            spike_ids = np.intersect1d(spike_ids, self.model.features_rows)
+        return spike_ids
 
-    def _get_spike_times(self, cluster_id=None):
-        spike_ids = self._get_spike_ids(cluster_id)
+    def _get_spike_times(self, cluster_id=None, load_all=None):
+        spike_ids = self._get_spike_ids(cluster_id, load_all=load_all)
         return Bunch(data=self.model.spike_times[spike_ids],
+                     spike_ids=spike_ids,
                      lim=(0., self.model.duration))
 
     def _get_features(self, cluster_id=None, channel_ids=None, load_all=None):
@@ -330,6 +340,14 @@ class TemplateController(EventEmitter):
         if cluster_id is not None and channel_ids is None:
             channel_ids = self.get_best_channels(cluster_id)
         data = self.model.get_features(spike_ids, channel_ids)
+        assert data.shape[:2] == (len(spike_ids), len(channel_ids))
+        # Remove rows with at least one nan value.
+        nan = np.unique(np.nonzero(np.isnan(data))[0])
+        nonnan = np.setdiff1d(np.arange(len(spike_ids)), nan)
+        data = data[nonnan, ...]
+        spike_ids = spike_ids[nonnan]
+        assert data.shape[:2] == (len(spike_ids), len(channel_ids))
+        assert np.isnan(data).sum() == 0
         return Bunch(data=data,
                      spike_ids=spike_ids,
                      channel_ids=channel_ids,
@@ -383,17 +401,15 @@ class TemplateController(EventEmitter):
         """Get traces and spike waveforms."""
         k = self.model.n_samples_templates
         m = self.model
-        c = m.channel_vertical_order
 
         traces_interval = select_traces(m.traces, interval,
                                         sample_rate=m.sample_rate)
         # Reorder vertically.
-        traces_interval = traces_interval[:, c]
         out = Bunch(data=traces_interval)
         out.waveforms = []
 
         def gbc(cluster_id):
-            return c[self.get_best_channels(cluster_id)]
+            return self.get_best_channels(cluster_id)
 
         for b in _iter_spike_waveforms(interval=interval,
                                        traces_interval=traces_interval,
@@ -434,7 +450,7 @@ class TemplateController(EventEmitter):
                       n_channels=m.n_channels,
                       sample_rate=m.sample_rate,
                       duration=m.duration,
-                      channel_labels=self.model.channel_vertical_order,
+                      channel_vertical_order=m.channel_vertical_order,
                       )
         self._add_view(gui, v)
 
@@ -457,6 +473,13 @@ class TemplateController(EventEmitter):
             """Toggle between showing all spikes or selected spikes."""
             self._show_all_spikes = not self._show_all_spikes
             v.set_interval(force_update=True)
+
+        @gui.connect_
+        def on_spike_click(channel_id=None, spike_id=None, cluster_id=None):
+            # Select the corresponding cluster.
+            self.supervisor.select([cluster_id])
+            # Update the trace view.
+            v.on_select([cluster_id], force_update=True)
 
         return v
 
@@ -501,6 +524,16 @@ class TemplateController(EventEmitter):
                           )
         return self._add_view(gui, v)
 
+    # Probe view
+    # -------------------------------------------------------------------------
+
+    def add_probe_view(self, gui):
+        v = ProbeView(positions=self.model.channel_positions,
+                      best_channels=self.get_best_channels,
+                      )
+        v.attach(gui)
+        return v
+
     # GUI
     # -------------------------------------------------------------------------
 
@@ -513,7 +546,8 @@ class TemplateController(EventEmitter):
         self.supervisor.attach(gui)
 
         self.add_waveform_view(gui)
-        self.add_trace_view(gui)
+        if self.model.traces is not None:
+            self.add_trace_view(gui)
         if self.model.features is not None:
             self.add_feature_view(gui)
         if self.model.template_features is not None:
@@ -521,6 +555,7 @@ class TemplateController(EventEmitter):
         self.add_correlogram_view(gui)
         if self.model.amplitudes is not None:
             self.add_amplitude_view(gui)
+        self.add_probe_view(gui)
 
         # Save the memcache when closing the GUI.
         @gui.connect_
