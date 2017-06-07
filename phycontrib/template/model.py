@@ -347,7 +347,7 @@ class TemplateModel(object):
     def save_spike_clusters(self, spike_clusters):
         """Save the spike clusters."""
         path = self._get_array_path('spike_clusters')
-        logger.debug("Save `%s`.", path)
+        logger.info("Save `%s`.", path)
         np.save(path, spike_clusters)
 
     def _load_channel_map(self):

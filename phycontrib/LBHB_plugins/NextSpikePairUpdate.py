@@ -32,7 +32,6 @@ class NextSpikePairUpdate(IPlugin):
                 if len(cluster_ids) == 0:
                     return
                 elif len(cluster_ids) == 1:
-                    cluster_ids=cluster_ids*2
                     is_self=True
                 else:
                     is_self=False
@@ -44,17 +43,20 @@ class NextSpikePairUpdate(IPlugin):
                     print('computing spike pairs...')
                     spc = controller.supervisor.clustering.spikes_per_cluster
                     spike_ids = spc[cluster_ids[0]]
-                    spike_times1 = m.spike_times[spike_ids]
-                    spike_ids = spc[cluster_ids[1]]
-                    spike_times2 = m.spike_times[spike_ids]
-                    diffs=np.repeat(spike_times1[:,None],spike_times2.shape,axis=1)-np.repeat(spike_times2[:,None],spike_times1.shape,axis=1).T
+                    spike_times1 = m.spike_times[spike_ids]              
                     if is_self:
-                        di = np.triu_indices(diffs.shape[0])
-                        diffs[di]=np.Inf 
+                        diffs=np.diff(spike_times1)
+                    else:
+                         spike_ids = spc[cluster_ids[1]]
+                         spike_times2 = m.spike_times[spike_ids]
+                         diffs=np.repeat(spike_times1[:,None],spike_times2.shape,axis=1)-np.repeat(spike_times2[:,None],spike_times1.shape,axis=1).T
                     self.max_num=np.min((np.prod(diffs.shape),max_num))
                     self.order=np.argsort(np.absolute(diffs),axis=None)[:self.max_num]                    
-                    indexes = np.unravel_index(self.order,diffs.shape)
-                    self.times=(spike_times1[indexes[0]]+spike_times2[indexes[1]])/2
+                    if is_self:
+                        self.times=(spike_times1[self.order]+spike_times1[self.order+1])/2
+                    else:
+                        indexes = np.unravel_index(self.order,diffs.shape)
+                        self.times=(spike_times1[indexes[0]]+spike_times2[indexes[1]])/2
                     self.current_index=0
                     self.current_clusters=cluster_ids
                     print('done')

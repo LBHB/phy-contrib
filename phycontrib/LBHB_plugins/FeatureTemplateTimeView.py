@@ -43,9 +43,10 @@ class FeatureTemplateTime(ScatterView):
             self.blockstarts=np.load(op.join(path,'blockstarts.npy'))[0]
             self.blocksizes_time=self.blocksizes/sample_rate
             self.blockstarts_time=self.blockstarts/sample_rate
-            self.gap_times=np.diff(self.blockstarts_time)-self.blocksizes_time[:-1]
+            self.gap=np.diff(self.blockstarts)-self.blocksizes[:-1]
+            self.gap_time=np.diff(self.blockstarts_time)-self.blocksizes_time[:-1]
             self.show_block_gap=False
-            self.show_block_lines=True
+            self.show_block_lines=True 
         else:
             self.show_block_gap=False
             self.show_block_lines=False
@@ -72,13 +73,15 @@ class FeatureTemplateTime(ScatterView):
         data_bounds = self._get_data_bounds(bunchs)
         if self.show_block_gap:                    
             line_times=self.blockstarts_time
-            grey_line_times=self.blockstarts_time[1:]-self.gap_times
-            data_bounds = (0, 0,self.controller.model.duration+self.gap_times.sum(), data_bounds[3])
+            grey_line_times = self.blockstarts_time[1:]-self.gap_time
+            data_bounds = (0, data_bounds[1],self.controller.model.duration+self.gap_time.sum(), data_bounds[3])
         else:
-            data_bounds = (0, 0, self.controller.model.duration, data_bounds[3])
+            data_bounds = (0,data_bounds[1], self.controller.model.duration, data_bounds[3])
             if self.show_block_lines:                    
-                line_times=self.blockstarts_time
-
+                line_times = self.blocksizes_time[:-1].cumsum()
+        if len(bunchs) > 1:
+            pass
+           # data_bounds = (data_bounds[0], 0, data_bounds[2], data_bounds[3])
         # Plot the points.
         with self.building():
             self._plot_points(bunchs, data_bounds)  
@@ -113,8 +116,8 @@ class FeatureTemplateTime(ScatterView):
             x  = np.copy(self.controller.model.spike_times[si])
             y  = np.average(ti, weights=ni, axis=1)
             if self.show_block_gap:
-                for j in range(len(self.gap_times)):                     
-                    x[np.logical_and(self.controller.model.spike_times[si]>self.blocksizes_time[:j+1].sum(),self.controller.model.spike_times[si]<self.blocksizes_time[:j+2].sum())]+=self.gap_times[:j+1].sum()
+                for j in range(len(self.gap_time)):                     
+                    x[np.logical_and(self.controller.model.spike_times[si]>self.blocksizes_time[:j+1].sum(),self.controller.model.spike_times[si]<self.blocksizes_time[:j+2].sum())]+=self.gap_time[:j+1].sum()
 
             # Compute the data bounds.
             x_min = min(x.min(), x_min)
@@ -132,11 +135,8 @@ class FeatureTemplateTime(ScatterView):
         # Get mouse position in NDC.
         mouse_pos = self.panzoom.get_mouse_pos(e.pos)
         if self.show_block_gap:
-            clicked_time=0
-            from PyQt4.QtCore import pyqtRemoveInputHook
-            from pdb import set_trace
-            pyqtRemoveInputHook()
-            set_trace()
+            total_time=(mouse_pos[0]+1)/2*(self.controller.model.duration+self.gap_time.sum())
+            msg='Total time = {:0.0f} ms re start'.format(total_time)
         else:
             clicked_time=(mouse_pos[0]+1)/2*self.controller.model.duration
         msg='Clicked time = {:0.0f} ms re start'.format(clicked_time)
