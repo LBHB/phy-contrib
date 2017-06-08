@@ -108,7 +108,7 @@ class AmplitudeHistogram(IPlugin):
 #                                                   p0=p0, maxfev=1000000)
 #                            was_fit[i] = True
 #                        except Exception as e:
-                        logger.info("Fitting error: %s", str(e))
+                        logger.info("Fitting error: %s", e)
                         was_fit[i] = False
                     if was_fit[i]:
                         n_fit = gaussian_cut(x, popt[0], popt[1],
