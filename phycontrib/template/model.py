@@ -342,8 +342,8 @@ class TemplateModel(object):
         logger.debug("Save `%s`.", path)
         # Remove empty values.
         save_metadata(path, name,
-                      {c: v for c, v in values.items() if v is not None})
-
+                      {c: v for c, v in values.items()})        
+#                     {c: v for c, v in values.items() if v is not None})
     def save_spike_clusters(self, spike_clusters):
         """Save the spike clusters."""
         path = self._get_array_path('spike_clusters')
