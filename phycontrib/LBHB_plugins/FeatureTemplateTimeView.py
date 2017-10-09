@@ -58,7 +58,26 @@ class FeatureTemplateTime(ScatterView):
             def toggle_show_block_gap(self=self,sup=self.controller.supervisor):
                 self.show_block_gap = not self.show_block_gap             
                 self.on_select()
+        self.currentline=[None] * 3
+        self.data_bounds=None
+        
+        @gui.connect_
+        def on_time_change(self=self, time=None, **kwargs):
+            print('Time Change to {0}'.format(time.time))
+# takes too long,             
+#            line2=self.lines(pos=[time.time, self.data_bounds[1],time.time,self.data_bounds[3]],color=(0, 0, 1, 1),data_bounds=self.data_bounds)
+#            self.currentline.pos[0][0]=time.time
+#            self.currentline.pos[0][2]=time.time
+#            self.currentline.update()
+#            #self.view.update()
+#            self.update()
+#	     self.show()
 
+
+
+
+
+            
     def on_select(self, cluster_ids=None, **kwargs):
         super(ScatterView, self).on_select(cluster_ids, **kwargs)
         cluster_ids = self.cluster_ids
@@ -79,6 +98,7 @@ class FeatureTemplateTime(ScatterView):
             data_bounds = (0,data_bounds[1], self.controller.model.duration, data_bounds[3])
             if self.show_block_lines:                    
                 line_times = self.blocksizes_time[:-1].cumsum()
+        self.data_bounds=data_bounds
         if len(bunchs) > 1:
             pass
            # data_bounds = (data_bounds[0], 0, data_bounds[2], data_bounds[3])
@@ -96,7 +116,13 @@ class FeatureTemplateTime(ScatterView):
                    data_bounds=data_bounds,
                    color=(1., 1., 1., .5),
                    )
-            
+            self.lines(pos=[0, data_bounds[1], 0, data_bounds[3]],color=(.4, .4, .4, 1),data_bounds=data_bounds)
+            self.lines(pos=[data_bounds[2], data_bounds[1],data_bounds[2], data_bounds[3]],color=(.4, .4, .4, 1),data_bounds=data_bounds)
+            time=self.gui.get_view('TraceView').time
+            half_duration=self.gui.get_view('TraceView').half_duration
+            self.currentline[0]=self.lines(pos=[time, data_bounds[1],time, data_bounds[3]],color=(1, 0, 0, 1),data_bounds=data_bounds)
+            self.currentline[1]=self.lines(pos=[time-half_duration, data_bounds[1],time-half_duration, data_bounds[3]],color=(.4, 0, 0, 1),data_bounds=data_bounds)
+            self.currentline[2]=self.lines(pos=[time+half_duration, data_bounds[1],time+half_duration, data_bounds[3]],color=(.4, 0, 0, 1),data_bounds=data_bounds)
     def _get_data(self, cluster_ids):
         b = self.coords(cluster_ids)
         return b
@@ -145,6 +171,7 @@ class FeatureTemplateTime(ScatterView):
         if 'Control' in e.modifiers:
             tv = self.gui.get_view('TraceView')
             tv.go_to(clicked_time)
+            self.on_select()
 class FeatureTemplateTimeView(IPlugin):
 
                 
