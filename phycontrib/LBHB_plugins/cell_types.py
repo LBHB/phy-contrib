@@ -25,7 +25,7 @@ Snippet used to export relevant information for clustering cell types.
 ExportMeanWaveforms output plugin.
 This plugin creates a npy file containing an array of the mean waveform for 
 each cluster (N_channels,N_samples,N_clusters)
-This plugin is called a s ansippet. To use it type ':' to get into snippet mode,
+This plugin is called a snippet. To use it type ':' to get into snippet mode,
 then type:
 emw
 or 
@@ -109,7 +109,7 @@ class ExportCelltypes(IPlugin):
                 np.save(op.join(controller.model.dir_path,'peak_trough_ratio.npy'),pt_ratio)    
                 np.save(op.join(controller.model.dir_path,'spike_width.npy'),sp_width)        
                 np.save(op.join(controller.model.dir_path,'mwf.npy'),mwf)
-                print('Done exporting fwhm')
+                print('Done exporting celltype specifiers')
                 
                 
                 
