@@ -16,6 +16,7 @@ Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2015
 from phy.gui import Actions
 import numpy as np
 from phy import IPlugin
+import os.path as op
 
 #from vispy.app import Canvas
 #from vispy import gloo
@@ -59,7 +60,6 @@ class PlotClusterLocations(IPlugin):
                 center_of_mass=np.zeros((len(cluster_ids),2))
                 type=np.zeros(len(cluster_ids), dtype=int) 
                 for i in range(len(cluster_ids)):
-                    print(i)
                     mv=np.zeros(controller.model.n_channels_dat)
                     data = controller._get_waveforms(int(cluster_ids[i]))
                     height[i]=abs(data.data.mean(0).min())
@@ -73,7 +73,18 @@ class PlotClusterLocations(IPlugin):
                     mv=mv/mv.sum()
                     center_of_mass[i,:]=(mv*controller.model.channel_positions.T).sum(1)
 
-                    if cluster_ids[i] not in controller.supervisor.cluster_groups.keys():
+                    if controller.model.n_channels == 128:
+                        # LAS hack to make 128D cluster locations look better
+                        if center_of_mass[i,0] > 200 and center_of_mass[i,0] < 500 :
+                            center_of_mass[i,0] = center_of_mass[i,0]- 200
+                            center_of_mass[i,1] = center_of_mass[i,1]- 1000
+                        if center_of_mass[i,0] > 600 and center_of_mass[i,0] < 800 :
+                            center_of_mass[i,0] = center_of_mass[i,0]- 400
+                            center_of_mass[i,1] = center_of_mass[i,1]- 2000
+                        if center_of_mass[i,0] > 800 :
+                            center_of_mass[i,0] = center_of_mass[i,0]- 600
+                            center_of_mass[i,1] = center_of_mass[i,1]- 3000
+                    if cluster_ids[i] not in controller.supervisor.cluster_groups.keys() or controller.supervisor.cluster_groups[cluster_ids[i]] == '':
                         type[i]=0
                         self.color[i]=(1,1,1)
                         self.text_color[i]=(1,1,1)
@@ -90,6 +101,10 @@ class PlotClusterLocations(IPlugin):
                         self.color[i]=(.5,.5,.5)
                         self.text_color[i]=(.5,.5,.5)
                     else:
+                        from PyQt4.QtCore import pyqtRemoveInputHook
+                        from pdb import set_trace
+                        pyqtRemoveInputHook()
+                        set_trace() 
                         raise RuntimeError('Cluster group ({}) of cluster {} is unknown.'
                             .format(controller.supervisor.cluster_groups[cluster_ids[i]],cluster_ids[i]))                    
                 
@@ -118,7 +133,9 @@ class PlotClusterLocations(IPlugin):
                 maxs=center_of_mass.max(0)+abs(center_of_mass.max(0)*.1)
                 ax.axis((mins[0],maxs[0],mins[1],maxs[1]))
                 self.fig.show()
-
+                save_path = op.join(controller.model.dir_path,'cluster_centers_of_mass.npy')
+                np.save(save_path,center_of_mass)
+                print('Cluster centers of mass exported to {}'.format(save_path))
                 #print(center_of_mass)
                 #print(height) 
           
