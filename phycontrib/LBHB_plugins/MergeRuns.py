@@ -156,7 +156,7 @@ class MergeRuns(IPlugin):
                 mu_order=np.argsort(mu_best_channels)
                 m_inds=np.concatenate((su_inds[su_order],mu_inds[mu_order]))
 
-                filename=op.join(controller.model.dir_path,'cluster_names.tsv')
+                filename=op.join(controller.model.dir_path,'cluster_names.ts')
                 if not op.exists(filename):                
                     best_channels=np.concatenate((su_best_channels[su_order],mu_best_channels[mu_order]))
                     unit_type=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
@@ -172,7 +172,7 @@ class MergeRuns(IPlugin):
                     unit_type=unit_types[m_inds]
                     unit_type_current=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
                     if ~np.all(unit_type==unit_type_current):
-                        raise RuntimeError('For the master phy, the unit types saved in "cluster_names.tsv"' 
+                        raise RuntimeError('For the master phy, the unit types saved in "cluster_names.ts"' 
                         'do not match those save in "cluster_groups.tsv" This likely means work was done on '
                         'this phy after merging with a previous master. Not sure how to deal with this!')
                     #re-sort to make unit numbers in order
@@ -319,10 +319,6 @@ class MergeRuns(IPlugin):
                         plugin.tablegui.status_message=st                        
                         
                 def merge_slaves_by_array(plugin,controller,controller2,merge_matchis):
-                    from PyQt4.QtCore import pyqtRemoveInputHook
-                    from pdb import set_trace
-                    pyqtRemoveInputHook()
-                    set_trace() 
                     for merge_matchi in merge_matchis:
                         row=np.where(plugin.matchi[plugin.sortrows]==merge_matchi)[0]     
                         merge_slaves(plugin,controller,controller2,row)
@@ -358,10 +354,7 @@ class MergeRuns(IPlugin):
                         this_ind=np.where(controller2.supervisor.clustering.cluster_ids[plugin.sortrows]==clu)[0][0]
                         n_ind.append(this_ind)
                     
-                    from PyQt4.QtCore import pyqtRemoveInputHook
-                    from pdb import set_trace
-                    pyqtRemoveInputHook()
-                    set_trace() 
+
                     ind=plugin.m_inds.shape[0] 
                     plugin.matchi[plugin.sortrows[n_ind]]=ind
                     plugin.m_inds=np.insert(plugin.m_inds,ind,-2)
@@ -437,10 +430,6 @@ class MergeRuns(IPlugin):
                     
                 @actions.add(menu='Merge',name='Save cluster associations',alias='sca')   
                 def save_cluster_associations(plugin=plugin,controller=controller,controller2=controller2):
-                    from PyQt4.QtCore import pyqtRemoveInputHook
-                    from pdb import set_trace
-                    pyqtRemoveInputHook()
-                    set_trace() 
                     un_matchi,counts=np.unique(plugin.matchi, return_index=False, return_inverse=False, return_counts=True)                    
                     rmi=np.where(plugin.unit_type[un_matchi]==3)[0]
                     if(len(rmi)>0):
@@ -481,12 +470,12 @@ class MergeRuns(IPlugin):
                     controller2.supervisor.save()
                     
                     #save associations                    
-                    create_tsv(op.join(controller.model.dir_path,'cluster_names.tsv'),
+                    create_tsv(op.join(controller.model.dir_path,'cluster_names.ts'),
                         controller.supervisor.clustering.cluster_ids[plugin.m_inds[~np.in1d(plugin.m_inds,(-1,-2))]],
                         plugin.unit_type[~np.in1d(plugin.m_inds,(-1,-2))],
                         plugin.best_channels[~np.in1d(plugin.m_inds,(-1,-2))],
                         plugin.unit_number[~np.in1d(plugin.m_inds,(-1,-2))])
-                    create_tsv(op.join(controller2.model.dir_path,'cluster_names.tsv'),
+                    create_tsv(op.join(controller2.model.dir_path,'cluster_names.ts'),
                         controller2.supervisor.clustering.cluster_ids[plugin.sortrows],
                         plugin.unit_type[plugin.matchi[plugin.sortrows]],
                         plugin.best_channels[plugin.matchi[plugin.sortrows]],
