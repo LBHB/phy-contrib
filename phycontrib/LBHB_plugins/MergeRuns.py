@@ -152,11 +152,15 @@ class MergeRuns(IPlugin):
                 mu_inds=np.nonzero([controller.supervisor.cluster_meta.get('group', c) == 'mua' for c in controller.supervisor.clustering.cluster_ids])[0]
                 su_best_channels=np.array([controller.get_best_channel(c) for c in controller.supervisor.clustering.cluster_ids[su_inds]])
                 mu_best_channels=np.array([controller.get_best_channel(c) for c in controller.supervisor.clustering.cluster_ids[mu_inds]])
-                su_order=np.argsort(su_best_channels)
-                mu_order=np.argsort(mu_best_channels)
+                su_order=np.argsort(su_best_channels,kind='mergesort')
+                mu_order=np.argsort(mu_best_channels,kind='mergesort')
                 m_inds=np.concatenate((su_inds[su_order],mu_inds[mu_order]))
 
                 filename=op.join(controller.model.dir_path,'cluster_names.ts')
+                from PyQt4.QtCore import pyqtRemoveInputHook
+                from pdb import set_trace
+                pyqtRemoveInputHook()
+                set_trace()     
                 if not op.exists(filename):                
                     best_channels=np.concatenate((su_best_channels[su_order],mu_best_channels[mu_order]))
                     unit_type=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
@@ -188,9 +192,9 @@ class MergeRuns(IPlugin):
                 
                 dists=calc_dists(controller,controller2,m_inds)
                         
-                so=np.argsort(dists,0)
+                so=np.argsort(dists,0,kind='mergesort')
                 matchi=so[0,:] #best match index to master for each slave
-                sortrows=np.argsort(matchi)#sort index for best match  
+                sortrows=np.argsort(matchi,kind='mergesort')#sort index for best match  
 
                 def handle_item_clicked(item,controller=controller,controller2=controller2,plugin=plugin):
                     row = np.array([cell.row() for cell in table.selectedIndexes()])
@@ -336,7 +340,7 @@ class MergeRuns(IPlugin):
                     controller2.mean_waveforms=np.append(controller2.mean_waveforms,new_mean_waveforms,axis=2)
                     plugin.dists=np.delete(plugin.dists,plugin.sortrows[row],axis=1) 
                     plugin.dists=np.append(plugin.dists,calc_dists(controller,controller2,plugin.m_inds,s_inds=plugin.dists.shape[1]),axis=1)
-                    plugin.sortrows=np.argsort(plugin.matchi)
+                    plugin.sortrows=np.argsort(plugin.matchi,kind='mergesort')
                     
                 @actions.add(menu='Merge',name='Move low-snr clusters to noise',shortcut='n')
                 def move_low_snr_to_noise(plugin=plugin,controller=controller,controller2=controller2):
@@ -362,7 +366,7 @@ class MergeRuns(IPlugin):
                     plugin.unit_number=np.insert(plugin.unit_number,ind,0)
                     plugin.unit_type=np.insert(plugin.unit_type,ind,3)
                     plugin.dists=np.insert(plugin.dists,ind,-1,axis=0)
-                    plugin.sortrows=np.argsort(plugin.matchi)
+                    plugin.sortrows=np.argsort(plugin.matchi,kind='mergesort')
                     
                     create_table(controller,controller2,plugin)                                          
                     tablegui.show()
