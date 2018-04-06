@@ -157,10 +157,6 @@ class MergeRuns(IPlugin):
                 m_inds=np.concatenate((su_inds[su_order],mu_inds[mu_order]))
 
                 filename=op.join(controller.model.dir_path,'cluster_names.ts')
-                from PyQt4.QtCore import pyqtRemoveInputHook
-                from pdb import set_trace
-                pyqtRemoveInputHook()
-                set_trace()     
                 if not op.exists(filename):                
                     best_channels=np.concatenate((su_best_channels[su_order],mu_best_channels[mu_order]))
                     unit_type=np.concatenate((np.ones(len(su_order)),2*np.ones(len(mu_order))))
@@ -505,6 +501,3 @@ class MergeRuns(IPlugin):
                 tablegui.show()
                 
 
-                
-                
-                    
