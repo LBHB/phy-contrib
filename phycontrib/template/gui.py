@@ -444,6 +444,14 @@ class TemplateController(EventEmitter):
         n = len(spike_times)
         view.go_to(spike_times[(ind + delta) % n])
            
+    def _channel_zoom_in_traceview(self, view,channel=None,N=None):
+        """Jump to next or previous spike from the selected clusters."""
+        cluster_ids = self.supervisor.selected
+        if len(cluster_ids) == 0:
+            return
+        if channel is None:
+            channel=self.get_best_channel(cluster_ids[0])
+        view.channel_zoom(channel,N)
     def add_trace_view(self, gui):
         m = self.model
         v = TraceView(traces=self._get_traces,
@@ -468,6 +476,10 @@ class TemplateController(EventEmitter):
 
         v.actions.separator()
 
+        @v.actions.add(alias='cz')
+        def channel_zoom_in_traceview(channel=None,N=10):
+            self._channel_zoom_in_traceview(v,channel,N)
+        
         @v.actions.add(shortcut='alt+s')
         def toggle_highlighted_spikes():
             """Toggle between showing all spikes or selected spikes."""

@@ -17,6 +17,7 @@ from phy import IPlugin
 from phy.utils import Bunch
 import numpy as np
 import matplotlib.pyplot as plt
+from phy.plot.transform import Range
 from phy.utils._color import _spike_colors, ColorSelector, _colormap
 from phy.cluster.views.scatter import ScatterView
 import os.path as op
@@ -51,7 +52,8 @@ class FeatureTemplateTime(ScatterView):
             self.show_block_gap=False
             self.show_block_lines=False
         # Initialize the view.
-        super(ScatterView, self).__init__(**kwargs)
+        super(ScatterView, self).__init__(enable_lasso=True,
+                                          **kwargs)
         #self.canvas.events.mouse_press.connect(self.on_mouse_press)
         if self.show_block_lines:
             @self.controller.supervisor.actions.add(menu='FeatureTemplateTimeView',name='Toggle show block gaps')   
@@ -60,6 +62,8 @@ class FeatureTemplateTime(ScatterView):
                 self.on_select()
         self.currentline=[None] * 3
         self.data_bounds=None
+        
+        gui.connect_(self.on_request_split_FTT)
         
         @gui.connect_
         def on_time_change(self=self, time=None, **kwargs):
@@ -168,10 +172,33 @@ class FeatureTemplateTime(ScatterView):
         msg='Clicked time = {:0.0f} ms re start'.format(clicked_time)
         self.controller.status_message=msg
         print(msg)
-        if 'Control' in e.modifiers:
+        if 'Control' in e.modifiers and e.button == 2:
             tv = self.gui.get_view('TraceView')
             tv.go_to(clicked_time)
             self.on_select()
+        elif 'Shift' in e.modifiers:
+            self.panzoom.set_pan_zoom(zoom=[.99, .97],pan=[0, 0])
+
+    def on_request_split_FTT(self):
+        """Return the spikes enclosed by the lasso."""
+
+
+        if (self.lasso.count < 3 or
+                not len(self.cluster_ids)):  # pragma: no cover
+            return np.array([], dtype=np.int64)
+        #assert len(self.channel_ids)
+        
+        bunchs = self._get_data(self.cluster_ids)
+        pos=np.vstack((bunchs[0]['x'],bunchs[0]['y'])).transpose()
+        # Normalize the points.
+        ra = Range(self.data_bounds)
+        pos = ra.apply(pos)
+        # Find lassoed spikes.
+        ind = self.lasso.in_polygon(pos)
+        ids=bunchs[0]['spike_ids'][ind]
+        self.lasso.clear()
+        return np.unique(ids)
+        
 class FeatureTemplateTimeView(IPlugin):
 
                 
