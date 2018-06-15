@@ -47,6 +47,7 @@ import numpy as np
 from phy import IPlugin
 import os.path as op
 from scipy import interpolate
+from sklearn.cluster import KMeans
 
 def find_nearest(array, value):
                         n = [abs(i-value) for i in array]
@@ -105,11 +106,21 @@ class ExportCellTypes(IPlugin):
                     if ind_slope+step < pts:
                         endslope[i] = (spl[ind_slope+step] - spl[ind_slope-step])/(step*2)
                    
-                np.save(op.join(controller.model.dir_path,'endslope.npy'),endslope)
-                np.save(op.join(controller.model.dir_path,'peak_trough_ratio.npy'),pt_ratio)    
-                np.save(op.join(controller.model.dir_path,'spike_width.npy'),sp_width)        
-                np.save(op.join(controller.model.dir_path,'mwf.npy'),mwf)
+                np.save(op.join(controller.model.dir_path,'wft_endslope.npy'),endslope)
+                np.save(op.join(controller.model.dir_path,'wft_peak_trough_ratio.npy'),pt_ratio)    
+                np.save(op.join(controller.model.dir_path,'wft_spike_width.npy'),sp_width)        
+                np.save(op.join(controller.model.dir_path,'wft_mwf.npy'),mwf)
                 print('Done exporting celltype specifiers')
+                
+                path = controller.model.dir_path
+                pt_ratio = np.load(path+'/wft_peak_trough_ratio.npy')
+                sw = np.load(path+'/wft_spike_width.npy')
+                
+                X = np.vstack((pt_ratio, sw)).T
+                kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
+                labels = kmeans.labels_
+                np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels)
+                print('Done exporting classified waveform types')
                 
                 
                 
