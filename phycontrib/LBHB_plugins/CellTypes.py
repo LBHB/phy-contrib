@@ -56,15 +56,14 @@ def find_nearest(array, value):
 
 
 class ExportCellTypes(IPlugin):
-        
+
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_gui_ready(gui):
-           
+        def on_gui_ready(gui):           
             
             actions = Actions(gui)
             @actions.add(alias='celltypes')            
-            def ExportCellTypes(max_waveforms_per_cluster=1E4,controller=controller):
+            def ExportCellTypes(max_waveforms_per_cluster=1E3,controller=controller):
                 fs = 30000
                 #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
                 cluster_ids=controller.supervisor.clustering.cluster_ids

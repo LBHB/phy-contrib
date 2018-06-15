@@ -34,7 +34,7 @@ from phy.utils._color import ColorSelector
 from phy.utils._misc import _read_python
 from phy.utils.cli import _run_cmd, _add_log_file
 
-from .model import TemplateModel, from_sparse
+from .model import TemplateModel, from_sparse, export_cell_types
 from ..utils import attach_plugins
 
 logger = logging.getLogger(__name__)
@@ -162,7 +162,10 @@ class TemplateController(EventEmitter):
             # Save cluster metadata.
             for name, values in labels:
                 self.model.save_metadata(name, values)
-
+            
+            print('exporting spike waveform types...')
+            export_cell_types(self)
+            
         return supervisor
 
     def _set_selector(self):
