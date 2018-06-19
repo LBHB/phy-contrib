@@ -1,7 +1,7 @@
 """ChannelExportUpdate output plugin.
 
-This plugin replaces phy's default svae function to additionally create
-a best_channels.npy file containing the phy best channels.
+This plugin adds to phy's default save function to additionally create
+a best_channels.npy file containing the phy best channels when you press save.
 
 To activate the plugin, copy this file to `~/.phy/plugins/` and add this line
 to your `~/.phy/phy_config.py`:

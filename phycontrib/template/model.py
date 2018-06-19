@@ -1,4 +1,3 @@
-
 import csv
 import glob
 import logging
@@ -8,6 +7,8 @@ import shutil
 
 import numpy as np
 import scipy.io as sio
+from sklearn.cluster import KMeans
+from scipy import interpolate
 
 from phy.io.array import (_concatenate_virtual_arrays,
                           _index_of,

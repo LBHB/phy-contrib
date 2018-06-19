@@ -161,8 +161,7 @@ class TemplateController(EventEmitter):
             self.model.save_spike_clusters(spike_clusters)
             # Save cluster metadata.
             for name, values in labels:
-                self.model.save_metadata(name, values)
-
+                self.model.save_metadata(name, values)            
         return supervisor
 
     def _set_selector(self):
