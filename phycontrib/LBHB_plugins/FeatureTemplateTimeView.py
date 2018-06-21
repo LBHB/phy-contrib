@@ -16,11 +16,10 @@ Luke Shaheen - Laboratory of Brain, Hearing and Behavior Jan 2017
 from phy import IPlugin
 from phy.utils import Bunch
 import numpy as np
-import matplotlib.pyplot as plt
 from phy.plot.transform import Range
-from phy.utils._color import _spike_colors, ColorSelector, _colormap
 from phy.cluster.views.scatter import ScatterView
 import os.path as op
+import phy.gui.qt as QtGui
 
 class FeatureTemplateTime(ScatterView):
     _callback_delay = 100
@@ -188,14 +187,23 @@ class FeatureTemplateTime(ScatterView):
             return np.array([], dtype=np.int64)
         #assert len(self.channel_ids)
         
+        id_str = [str(id) for id in self.cluster_ids]
+        
+        dlg = QtGui.QInputDialog(None)
+        [cl,ok] = QtGui.QInputDialog.getItem(dlg,"Which cluster id should be split:", 
+           "Which cluster id should be split:", id_str, 0, False)
+        if not  ok:
+             return np.array([], dtype=np.int64)
+        cluster_index=id_str.index(cl)
+                        
         bunchs = self._get_data(self.cluster_ids)
-        pos=np.vstack((bunchs[0]['x'],bunchs[0]['y'])).transpose()
+        pos=np.vstack((bunchs[cluster_index]['x'],bunchs[cluster_index]['y'])).transpose()
         # Normalize the points.
         ra = Range(self.data_bounds)
         pos = ra.apply(pos)
         # Find lassoed spikes.
         ind = self.lasso.in_polygon(pos)
-        ids=bunchs[0]['spike_ids'][ind]
+        ids=bunchs[cluster_index]['spike_ids'][ind]
         self.lasso.clear()
         return np.unique(ids)
         
