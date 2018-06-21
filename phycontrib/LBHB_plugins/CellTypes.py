@@ -62,13 +62,20 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
         sp_width = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
         pt_ratio = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
         endslope = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
-        
-        cluster_groups = np.array([[k, v] for k, v in cluster_groups.items()])    
-        single_units = np.array([0 if cluster_groups[i,1]!='good' else cluster_ids[i] for i in range(0,len(cluster_ids))])
-        single_unit_indices = np.argwhere(np.array(cluster_ids)==single_units)
-        single_unit_indices = [x[0] for x in single_unit_indices]
-    
-        for i in range(len(cluster_ids)):
+        c_group_keys = np.sort(np.array([int(x) for x in cluster_groups.keys()]))
+
+        #cluster_groups = np.array([[int(k), cluster_groups[k]] for i, k in enumerate(cluster_groups.keys())])
+        #cluster_groups = np.sort(np.array([np.array([int(k), v]) for k, v in cluster_groups.items()]),0)
+        #print(cluster_groups.shape)
+        sorted_units_mask = []
+        for i in range(0, len(cluster_groups)):
+            if cluster_groups[c_group_keys[i]]=='good' or cluster_groups[c_group_keys[i]]=='mua':
+                sorted_units_mask.append(1)
+            else:
+                sorted_units_mask.append(0)
+        sorted_units_mask = np.array(sorted_units_mask,dtype=np.bool)
+
+        for i in c_group_keys:#range(len(cluster_ids)):
             print('i={0},cluster={1}'.format(i,cluster_ids[i]))
             spike_ids = controller.selector.select_spikes([cluster_ids[i]],
                                         max_waveforms_per_cluster,
@@ -116,18 +123,19 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
         pt_ratio = np.load(path+'/wft_peak_trough_ratio.npy')
         sw = np.load(path+'/wft_spike_width.npy')
         
-        X = np.vstack((pt_ratio, sw)).T
+        X = np.vstack((pt_ratio[sorted_units_mask], sw[sorted_units_mask])).T
         kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
         labels_ = kmeans.labels_
         # deprecated code if you only want to label single units
-        '''
-        labels_ = -1*np.ones(len(cluster_ids))
         
+        labels_ = -1*np.ones(len(cluster_ids))
+        j = 0
         for i in range(0, len(cluster_ids)):
-            if i in single_unit_indices:
-                labels_[i] = kmeans.labels_[i]
-        '''       
-                    
+            if sorted_units_mask[i] == True:
+                labels_[i] = kmeans.labels_[j]
+                j+=1
+        print(labels_)
+        
         np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_)
         print('Done exporting classified waveform types')
         
