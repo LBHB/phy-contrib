@@ -64,9 +64,6 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
         endslope = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
         c_group_keys = np.sort(np.array([int(x) for x in cluster_groups.keys()]))
 
-        #cluster_groups = np.array([[int(k), cluster_groups[k]] for i, k in enumerate(cluster_groups.keys())])
-        #cluster_groups = np.sort(np.array([np.array([int(k), v]) for k, v in cluster_groups.items()]),0)
-        #print(cluster_groups.shape)
         sorted_units_mask = []
         for i in range(0, len(cluster_groups)):
             if cluster_groups[c_group_keys[i]]=='good' or cluster_groups[c_group_keys[i]]=='mua':
@@ -75,7 +72,7 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
                 sorted_units_mask.append(0)
         sorted_units_mask = np.array(sorted_units_mask,dtype=np.bool)
 
-        for i in c_group_keys:#range(len(cluster_ids)):
+        for i in range(len(cluster_ids)):
             print('i={0},cluster={1}'.format(i,cluster_ids[i]))
             spike_ids = controller.selector.select_spikes([cluster_ids[i]],
                                         max_waveforms_per_cluster,
@@ -134,9 +131,16 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
             if sorted_units_mask[i] == True:
                 labels_[i] = kmeans.labels_[j]
                 j+=1
-        print(labels_)
         
-        np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_)
+        # make sure lableing of fs and rs is consitent. (by default, 0 means regular spiking)
+        labels_return = -1*np.ones(len(labels_))
+        if np.mean(sw[labels_==1]) > np.mean(sw[labels_==0]):
+            labels_return[labels_==1]=0
+            labels_return[labels_==0]=1
+        else:
+            labels_return = labels_
+        
+        np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_return)
         print('Done exporting classified waveform types')
         
             
