@@ -53,11 +53,11 @@ def find_nearest(array, value):
                         n = [abs(i-value) for i in array]
                         idx = n.index(min(n))
                         return array[idx]
-def export_cell_types(controller, max_waveforms_per_cluster=1E3):
+def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):    
         fs = 30000
         #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
         cluster_ids=controller.supervisor.clustering.cluster_ids
-        cluster_groups = controller.model.get_metadata('group')
+        cluster_groups = groups             
         mwf=np.zeros((controller.model.n_samples_templates,len(cluster_ids)))
         sp_width = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
         pt_ratio = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
@@ -69,64 +69,68 @@ def export_cell_types(controller, max_waveforms_per_cluster=1E3):
             if cluster_groups[c_group_keys[i]]=='good' or cluster_groups[c_group_keys[i]]=='mua':
                 sorted_units_mask.append(1)
             else:
-                sorted_units_mask.append(0)
+                sorted_units_mask.append(0)      
         sorted_units_mask = np.array(sorted_units_mask,dtype=np.bool)
 
         for i in range(len(cluster_ids)):
-            print('i={0},cluster={1}'.format(i,cluster_ids[i]))
-            spike_ids = controller.selector.select_spikes([cluster_ids[i]],
-                                        max_waveforms_per_cluster,
-                                        controller.batch_size_waveforms)
-            #channel_ids = controller.get_best_channels(cluster_ids[i])
-            channel_ids=np.arange(controller.model.n_channels_dat) #gets all chnnels
-            data = controller.model.get_waveforms(spike_ids, channel_ids)
-            datam = np.rollaxis(data.mean(0),1)
-            best_channel = np.argwhere(np.max(abs(datam),1) == np.max(np.max(abs(datam),1)))
-            spike = np.squeeze(datam[best_channel, :])
-            
-            if abs(np.min(spike)) < np.max(spike):
-                spike = -spike  # flip spike if it had positive depolarization
-            
-            peak = np.max(abs(spike[20:60]))
-            fit2 = interpolate.UnivariateSpline(np.arange(len(spike)), spike)
-            pts = 10000
-            fs_spl = fs*(pts/len(spike))
-            mwf[:,i] = spike
+            if sorted_units_mask[i]==1:
+                print('i={0}, cluster={1}, group={2}'.format(i, cluster_ids[i], cluster_groups[c_group_keys[i]]))
+                spike_ids = controller.selector.select_spikes([cluster_ids[i]],
+                                            max_waveforms_per_cluster,
+                                            controller.batch_size_waveforms)
+                #channel_ids = controller.get_best_channels(cluster_ids[i])
+                channel_ids=np.arange(controller.model.n_channels_dat) #gets all chnnels
+                data = controller.model.get_waveforms(spike_ids, channel_ids)
+                datam = np.rollaxis(data.mean(0),1)
+                best_channel = np.argwhere(np.max(abs(datam),1) == np.max(np.max(abs(datam),1)))
+                spike = np.squeeze(datam[best_channel, :])
+                
+                if abs(np.min(spike)) < np.max(spike):
+                    spike = -spike  # flip spike if it had positive depolarization
+                
+                peak = np.max(abs(spike[20:60]))
+                fit2 = interpolate.UnivariateSpline(np.arange(len(spike)), spike)
+                pts = 10000
+                fs_spl = fs*(pts/len(spike))
+                mwf[:,i] = spike
         
-           
-            spl = -fit2(np.linspace(0,len(spike),pts))
-            ind=(np.argwhere(spl == max(spl)))[0][0]
-            peak = np.argwhere(spl[:ind]==
-                               find_nearest(spl[:ind], max(spl)))
-            trough = np.argwhere(spl[ind:]==
-                               find_nearest(spl[ind:], min(spl)))+ind
-            sp_width[i] = ((abs(peak[0][0]-trough[0][0])/(pts))*len(spike))/fs*1000  ## convert width to ms
-            pt_ratio[i] = abs(spl[trough])/abs(spl[peak])
-            
-            ## Where to calculate endslope(0.5ms post spike peak)
-            inds_from_peak = round((0.5/1000)*fs_spl)   #Niell and Stryker
-            ind_slope = peak + inds_from_peak
-            step = round((0.025/1000)*fs_spl)  # 0.025 ms surrounding the location
-            if ind_slope+step < pts:
-                endslope[i] = (spl[ind_slope+step] - spl[ind_slope-step])/(step*2)
-           
+                spl = -fit2(np.linspace(0,len(spike),pts))
+                ind=(np.argwhere(spl == max(spl)))[0][0]
+                peak = np.argwhere(spl[:ind]==
+                                   find_nearest(spl[:ind], max(spl)))
+                trough = np.argwhere(spl[ind:]==
+                                   find_nearest(spl[ind:], min(spl)))+ind
+                sp_width[i] = ((abs(peak[0][0]-trough[0][0])/(pts))*len(spike))/fs*1000  ## convert width to ms
+                pt_ratio[i] = abs(spl[trough])/abs(spl[peak])
+                
+                ## Where to calculate endslope(0.5ms post spike peak)
+                inds_from_peak = round((0.5/1000)*fs_spl)   #Niell and Stryker
+                ind_slope = peak + inds_from_peak
+                step = round((0.025/1000)*fs_spl)  # 0.025 ms surrounding the location
+                if ind_slope+step < pts:
+                    endslope[i] = (spl[ind_slope+step] - spl[ind_slope-step])/(step*2)
+               
         np.save(op.join(controller.model.dir_path,'wft_endslope.npy'),endslope)
         np.save(op.join(controller.model.dir_path,'wft_peak_trough_ratio.npy'),pt_ratio)    
         np.save(op.join(controller.model.dir_path,'wft_spike_width.npy'),sp_width)        
         np.save(op.join(controller.model.dir_path,'wft_mwf.npy'),mwf)
         print('Done exporting celltype specifiers')
         
+        
         path = controller.model.dir_path
         pt_ratio = np.load(path+'/wft_peak_trough_ratio.npy')
         sw = np.load(path+'/wft_spike_width.npy')
         
-        X = np.vstack((pt_ratio[sorted_units_mask], sw[sorted_units_mask])).T
+        X = np.vstack((pt_ratio, sw)).T
         kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
         labels_ = kmeans.labels_
-        # deprecated code if you only want to label single units
         
+        # create an array of labels (default it is -1) for ALL clusters
         labels_ = -1*np.ones(len(cluster_ids))
+        
         j = 0
+        # only save the labels from the clustered (sorted) units. The rest stay 
+        # as -1
         for i in range(0, len(cluster_ids)):
             if sorted_units_mask[i] == True:
                 labels_[i] = kmeans.labels_[j]
@@ -157,7 +161,7 @@ class ExportCellTypes(IPlugin):
                 
             @controller.supervisor.connect
             def on_request_save(spike_clusters, groups, labels, controller=controller): 
-                export_cell_types(controller=controller)
+                export_cell_types(controller=controller, groups=groups)
                 
                 
                 
