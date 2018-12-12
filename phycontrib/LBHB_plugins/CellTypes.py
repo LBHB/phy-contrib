@@ -1,4 +1,4 @@
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Tue Nov  7 14:37:48 2017
@@ -55,6 +55,9 @@ def find_nearest(array, value):
                         return array[idx]
 def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):    
         fs = 30000
+        
+        original_template_ids = np.load("spike_templates.npy")
+        
         #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
         cluster_ids=controller.supervisor.clustering.cluster_ids
         cluster_groups = groups             
@@ -75,11 +78,23 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         for i in range(len(cluster_ids)):
             if sorted_units_mask[i]==1:
                 print('i={0}, cluster={1}, group={2}'.format(i, cluster_ids[i], cluster_groups[c_group_keys[i]]))
-                spike_ids = controller.selector.select_spikes([cluster_ids[i]],
+                
+                if len(np.argwhere(controller.get_template_counts(cluster_ids[i])!=0))>1:
+                    # this cluster is the result of a merge, figure out which spikes to use for
+                    # average
+                    templates = np.argwhere(controller.get_template_counts(cluster_ids[i])!=0)
+                    counts = controller.get_template_counts(cluster_ids[i])
+                    cluster = np.argwhere(counts==np.max(counts[templates]))[0][0]
+                    ids_squeezed = original_template_ids.copy().squeeze()
+                    valid_spike_ids = np.argwhere(ids_squeezed==cluster)
+                    spike_ids = np.random.choice(valid_spike_ids[:,0], int(max_waveforms_per_cluster))
+                    
+                else:
+                    spike_ids = controller.selector.select_spikes([cluster_ids[i]],
                                             max_waveforms_per_cluster,
                                             controller.batch_size_waveforms)
-                #channel_ids = controller.get_best_channels(cluster_ids[i])
-                channel_ids=np.arange(controller.model.n_channels_dat) #gets all chnnels
+                
+                channel_ids = np.arange(controller.model.n_channels_dat) #gets all chnnels
                 data = controller.model.get_waveforms(spike_ids, channel_ids)
                 datam = np.rollaxis(data.mean(0),1)
                 best_channel = np.argwhere(np.max(abs(datam),1) == np.max(np.max(abs(datam),1)))
@@ -162,7 +177,6 @@ class ExportCellTypes(IPlugin):
             @controller.supervisor.connect
             def on_request_save(spike_clusters, groups, labels, controller=controller): 
                 export_cell_types(controller=controller, groups=groups)
-                
                 
                 
                 
