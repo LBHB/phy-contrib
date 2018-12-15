@@ -140,10 +140,6 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         X = np.vstack((pt_ratio, sw, endslope)).T
         X = X[sorted_units_mask]
         kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
-        labels_ = kmeans.labels_
-        
-        import pdb
-        pdb.set_trace()
         
         # create an array of labels (default it is -1) for ALL clusters
         labels_ = -1*np.ones(len(cluster_ids))
