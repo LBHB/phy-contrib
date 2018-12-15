@@ -48,6 +48,7 @@ from phy import IPlugin
 import os.path as op
 from scipy import interpolate
 from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
 
 def find_nearest(array, value):
                         n = [abs(i-value) for i in array]
@@ -136,9 +137,13 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         pt_ratio = np.load(path+'/wft_peak_trough_ratio.npy')
         sw = np.load(path+'/wft_spike_width.npy')
         
-        X = np.vstack((pt_ratio, sw)).T
+        X = np.vstack((pt_ratio, sw, endslope)).T
+        X = X[sorted_units_mask]
         kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
         labels_ = kmeans.labels_
+        
+        import pdb
+        pdb.set_trace()
         
         # create an array of labels (default it is -1) for ALL clusters
         labels_ = -1*np.ones(len(cluster_ids))
@@ -158,6 +163,29 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
             labels_return[labels_==0]=1
         else:
             labels_return = labels_
+            
+        # plot the clustered waveforms
+        f, ax = plt.subplots(1,2)
+        ax[0].set_ylabel('endslope')
+        ax[0].set_xlabel('spike width')
+        ax[0].plot(sp_width[labels_return==1], endslope[labels_return==1], 'r.')
+        ax[0].plot(sp_width[labels_return==0], endslope[labels_return==0], 'b.')
+        asp = np.diff(ax[0].get_xlim())[0] / np.diff(ax[0].get_ylim())[0]
+        ax[0].set_aspect(asp)
+
+        ax[1].set_ylabel('peak trough ratio')
+        ax[1].set_xlabel('spike width')
+        ax[1].plot(sp_width[labels_return==1], pt_ratio[labels_return==1], 'r.')
+        ax[1].plot(sp_width[labels_return==0], pt_ratio[labels_return==0], 'b.')
+        ax[1].legend(['FS', 'RS'])   
+        asp = np.diff(ax[1].get_xlim())[0] / np.diff(ax[1].get_ylim())[0]
+        ax[1].set_aspect(asp)
+
+
+        f.tight_layout()
+        
+        plt.savefig("waveform clustering.png")        
+    
         
         np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_return)
         print('Done exporting classified waveform types')
