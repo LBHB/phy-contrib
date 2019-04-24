@@ -97,7 +97,7 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
                                             max_waveforms_per_cluster,
                                             controller.batch_size_waveforms)
 
-                channel_ids = np.arange(controller.model.n_channels_dat) #gets all chnnels
+                channel_ids = np.arange(controller.model.n_channels) #gets all chnnels
                 data = controller.model.get_waveforms(spike_ids, channel_ids)
                 datam = np.rollaxis(data.mean(0),1)
                 best_channel = np.argwhere(np.max(abs(datam),1) == np.max(np.max(abs(datam),1)))
