@@ -17,18 +17,18 @@ Snippet used to export relevant information for clustering cell types.
 -endslope
 
 (see below for instructions on how to call this snippet)
-       
+
        *** replace 'emw' with 'celltypes' ***
 
 ====== Luke's docstring ======
 
 ExportMeanWaveforms output plugin.
-This plugin creates a npy file containing an array of the mean waveform for 
+This plugin creates a npy file containing an array of the mean waveform for
 each cluster (N_channels,N_samples,N_clusters)
 This plugin is called a snippet. To use it type ':' to get into snippet mode,
 then type:
 emw
-or 
+or
 emw N
 where N is the max number of waveforms per cluster to use to create the mean waveform (default 1000)
 use a really high number to use all waveforms.
@@ -54,18 +54,20 @@ def find_nearest(array, value):
                         n = [abs(i-value) for i in array]
                         idx = n.index(min(n))
                         return array[idx]
-def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):    
+
+
+def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         fs = 30000
-        
+
         original_template_ids = np.load("spike_templates.npy")
-        
+
         #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
         cluster_ids=controller.supervisor.clustering.cluster_ids
-        cluster_groups = groups             
+        cluster_groups = groups
         mwf=np.zeros((controller.model.n_samples_templates,len(cluster_ids)))
-        sp_width = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
-        pt_ratio = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
-        endslope = -1*np.ones(len(cluster_ids))  ## Neill and Stryker
+        sp_width = -1*np.ones(len(cluster_ids))
+        pt_ratio = -1*np.ones(len(cluster_ids))
+        endslope = -1*np.ones(len(cluster_ids))
         c_group_keys = np.sort(np.array([int(x) for x in cluster_groups.keys()]))
 
         sorted_units_mask = []
@@ -73,13 +75,13 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
             if cluster_groups[c_group_keys[i]]=='good' or cluster_groups[c_group_keys[i]]=='mua':
                 sorted_units_mask.append(1)
             else:
-                sorted_units_mask.append(0)      
+                sorted_units_mask.append(0)
         sorted_units_mask = np.array(sorted_units_mask,dtype=np.bool)
 
         for i in range(len(cluster_ids)):
             if sorted_units_mask[i]==1:
                 print('i={0}, cluster={1}, group={2}'.format(i, cluster_ids[i], cluster_groups[c_group_keys[i]]))
-                
+
                 if len(np.argwhere(controller.get_template_counts(cluster_ids[i])!=0))>1:
                     # this cluster is the result of a merge, figure out which spikes to use for
                     # average
@@ -89,27 +91,27 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
                     ids_squeezed = original_template_ids.copy().squeeze()
                     valid_spike_ids = np.argwhere(ids_squeezed==cluster)
                     spike_ids = np.random.choice(valid_spike_ids[:,0], int(max_waveforms_per_cluster))
-                    
+
                 else:
                     spike_ids = controller.selector.select_spikes([cluster_ids[i]],
                                             max_waveforms_per_cluster,
                                             controller.batch_size_waveforms)
-                
+
                 channel_ids = np.arange(controller.model.n_channels_dat) #gets all chnnels
                 data = controller.model.get_waveforms(spike_ids, channel_ids)
                 datam = np.rollaxis(data.mean(0),1)
                 best_channel = np.argwhere(np.max(abs(datam),1) == np.max(np.max(abs(datam),1)))
                 spike = np.squeeze(datam[best_channel, :])
-                
+
                 if abs(np.min(spike)) < np.max(spike):
                     spike = -spike  # flip spike if it had positive depolarization
-                
+
                 peak = np.max(abs(spike[20:60]))
                 fit2 = interpolate.UnivariateSpline(np.arange(len(spike)), spike)
                 pts = 10000
                 fs_spl = fs*(pts/len(spike))
                 mwf[:,i] = spike
-        
+
                 spl = -fit2(np.linspace(0,len(spike),pts))
                 ind=(np.argwhere(spl == max(spl)))[0][0]
                 peak = np.argwhere(spl[:ind]==
@@ -118,40 +120,40 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
                                    find_nearest(spl[ind:], min(spl)))+ind
                 sp_width[i] = ((abs(peak[0][0]-trough[0][0])/(pts))*len(spike))/fs*1000  ## convert width to ms
                 pt_ratio[i] = abs(spl[trough])/abs(spl[peak])
-                
+
                 ## Where to calculate endslope(0.5ms post spike peak)
                 inds_from_peak = round((0.5/1000)*fs_spl)   #Niell and Stryker
                 ind_slope = peak + inds_from_peak
                 step = round((0.025/1000)*fs_spl)  # 0.025 ms surrounding the location
                 if ind_slope+step < pts:
                     endslope[i] = (spl[ind_slope+step] - spl[ind_slope-step])/(step*2)
-               
+
         np.save(op.join(controller.model.dir_path,'wft_endslope.npy'),endslope)
-        np.save(op.join(controller.model.dir_path,'wft_peak_trough_ratio.npy'),pt_ratio)    
-        np.save(op.join(controller.model.dir_path,'wft_spike_width.npy'),sp_width)        
+        np.save(op.join(controller.model.dir_path,'wft_peak_trough_ratio.npy'),pt_ratio)
+        np.save(op.join(controller.model.dir_path,'wft_spike_width.npy'),sp_width)
         np.save(op.join(controller.model.dir_path,'wft_mwf.npy'),mwf)
         print('Done exporting celltype specifiers')
-        
-        
+
+
         path = controller.model.dir_path
         pt_ratio = np.load(path+'/wft_peak_trough_ratio.npy')
         sw = np.load(path+'/wft_spike_width.npy')
-        
+
         X = np.vstack((pt_ratio, sw, endslope)).T
         X = X[sorted_units_mask]
         kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
-        
+
         # create an array of labels (default it is -1) for ALL clusters
         labels_ = -1*np.ones(len(cluster_ids))
-        
+
         j = 0
-        # only save the labels from the clustered (sorted) units. The rest stay 
+        # only save the labels from the clustered (sorted) units. The rest stay
         # as -1
         for i in range(0, len(cluster_ids)):
             if sorted_units_mask[i] == True:
                 labels_[i] = kmeans.labels_[j]
                 j+=1
-        
+
         # make sure lableing of fs and rs is consitent. (by default, 0 means regular spiking)
         labels_return = -1*np.ones(len(labels_))
         if np.mean(sw[labels_==1]) > np.mean(sw[labels_==0]):
@@ -159,7 +161,7 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
             labels_return[labels_==0]=1
         else:
             labels_return = labels_
-            
+
         # plot the clustered waveforms
         f, ax = plt.subplots(1,2)
         ax[0].set_ylabel('endslope')
@@ -173,35 +175,32 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         ax[1].set_xlabel('spike width')
         ax[1].plot(sp_width[labels_return==1], pt_ratio[labels_return==1], 'r.')
         ax[1].plot(sp_width[labels_return==0], pt_ratio[labels_return==0], 'b.')
-        ax[1].legend(['FS', 'RS'])   
+        ax[1].legend(['FS', 'RS'])
         asp = np.diff(ax[1].get_xlim())[0] / np.diff(ax[1].get_ylim())[0]
         ax[1].set_aspect(asp)
 
 
         f.tight_layout()
-        
-        plt.savefig("waveform clustering.png")        
-    
-        
+
+        plt.savefig("waveform clustering.png")
+
+
         np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_return)
         print('Done exporting classified waveform types')
-        
-            
+
+
 class ExportCellTypes(IPlugin):
 
     def attach_to_controller(self, controller):
         @controller.connect
-        def on_gui_ready(gui, **kwargs):           
-            
+        def on_gui_ready(gui, **kwargs):
+
             actions = Actions(gui)
-            @actions.add(alias='celltypes')            
+            @actions.add(alias='celltypes')
             def ExportCellTypes(max_waveforms_per_cluster=1E3,controller=controller):
                 export_cell_types(controller, max_waveforms_per_cluster)
-                
+
             @controller.supervisor.connect
-            def on_request_save(spike_clusters, groups, labels, controller=controller): 
+            def on_request_save(spike_clusters, groups, amplitude, contamination,
+                                KS_label, labels, controller=controller):
                 export_cell_types(controller=controller, groups=groups)
-                
-                
-                
-                

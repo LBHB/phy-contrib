@@ -16,17 +16,17 @@ Luke Shaheen - Laboratory of Brain, Hearing and Behavior Nov 2016
 import numpy as np
 from phy import IPlugin
 import os.path as op
-
+# spike_clusters, groups, labels,
 class ChannelExportUpdate(IPlugin):
-        
+
     def attach_to_controller(self, controller):
         @controller.connect
         def on_gui_ready(gui,**kwargs):
             @controller.supervisor.connect
-            def on_request_save(spike_clusters, groups, labels, controller=controller):              
+            def on_request_save(spike_clusters, groups, amplitude, contamination,
+                                KS_label, labels, controller=controller):              
                 cluster_ids=sorted(groups)
                 best_channels = np.zeros(len(cluster_ids))
                 for i in range(len(cluster_ids)):
                     best_channels[i]=controller.get_best_channel(cluster_ids[i])
                 np.save(op.join(controller.model.dir_path,'best_channels.npy'),best_channels)
-                                
