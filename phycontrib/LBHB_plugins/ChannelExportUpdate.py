@@ -23,8 +23,22 @@ class ChannelExportUpdate(IPlugin):
         @controller.connect
         def on_gui_ready(gui,**kwargs):
             @controller.supervisor.connect
-            def on_request_save(spike_clusters, groups, amplitude, contamination,
-                                KS_label, labels, controller=controller):              
+            #def on_request_save(spike_clusters, groups, amplitude, contamination,
+            #                    KS_label, labels, controller=controller):
+            def on_request_save(*args, controller=controller):
+                if len(args) == 6:
+                    spike_clusters = args[0]
+                    groups = args[1]
+                    amplitude = args[2]
+                    contamination = args[3]
+                    KS_label = args[4]
+                    labels = args[5]
+                elif len(args) == 3:
+                    spike_clusters = args[0]
+                    groups = args[1]
+                    labels = args[2]
+                else:
+                    pass
                 cluster_ids=sorted(groups)
                 best_channels = np.zeros(len(cluster_ids))
                 for i in range(len(cluster_ids)):
