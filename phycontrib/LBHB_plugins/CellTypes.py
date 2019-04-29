@@ -59,7 +59,7 @@ def find_nearest(array, value):
 def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
         fs = 30000
 
-        original_template_ids = np.load("spike_templates.npy")
+        original_template_ids = np.load(op.join(controller.model.dir_path,'spike_templates.npy'))
 
         #make max_waveforms_per_cluster a really big number if you want to get all the waveforms (slow)
         cluster_ids=controller.supervisor.clustering.cluster_ids
@@ -182,7 +182,7 @@ def export_cell_types(controller, groups, max_waveforms_per_cluster=1E3):
 
         f.tight_layout()
 
-        plt.savefig("waveform clustering.png")
+        plt.savefig(op.join(controller.model.dir_path,'waveform clustering.png'))
 
 
         np.save(op.join(controller.model.dir_path, 'wft_celltype.npy'), labels_return)
