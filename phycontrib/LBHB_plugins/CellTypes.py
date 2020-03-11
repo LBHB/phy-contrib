@@ -202,7 +202,7 @@ class ExportCellTypes(IPlugin):
 
             @controller.supervisor.connect
             def on_request_save(*args, controller=controller):
-                if len(args) == 6:
+                if len(args) >= 6:
                     spike_clusters = args[0]
                     groups = args[1]
                     amplitude = args[2]
@@ -214,5 +214,6 @@ class ExportCellTypes(IPlugin):
                     groups = args[1]
                     labels = args[2]
                 else:
+                    import pdb; pdb.set_trace()
                     pass
                 export_cell_types(controller=controller, groups=groups)

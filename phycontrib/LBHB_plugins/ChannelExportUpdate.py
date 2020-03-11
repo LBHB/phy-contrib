@@ -26,7 +26,7 @@ class ChannelExportUpdate(IPlugin):
             #def on_request_save(spike_clusters, groups, amplitude, contamination,
             #                    KS_label, labels, controller=controller):
             def on_request_save(*args, controller=controller):
-                if len(args) == 6:
+                if len(args) >= 6:
                     spike_clusters = args[0]
                     groups = args[1]
                     amplitude = args[2]
